@@ -8,15 +8,15 @@ describe('MPC arithmetics', function() {
     const a = 1n;
     const b = 2n;
 
-    const As = sss.split(a, n, k);
-    const Bs = sss.split(b, n, k);
+    const a_shares = sss.split(a, n, k);
+    const b_shares = sss.split(b, n, k);
 
     const results: Point[] = [];
     // calculate [a] + [b] in each party
-    for (let p = 0; p < n; p++) {
-      let A = As[p][1];
-      let B = Bs[p][1];
-      results.push([BigInt(p+1), A + B])
+    for (let i = 1; i <= n; i++) {
+      let a_i = a_shares[i-1][1];
+      let b_i = b_shares[i-1][1];
+      results.push([BigInt(i), a_i + b_i])
     }
 
     expect(sss.reconstruct(results)).toEqual(a+b)
@@ -30,20 +30,22 @@ describe('MPC arithmetics', function() {
     const N = 10n;
     const M = 30n;
 
-    const As = sss.split(a, n, k);
-    const Bs = sss.split(b, n, k);
+    const a_shares = sss.split(a, n, k);
+    const b_shares = sss.split(b, n, k);
 
     const results: Point[] = [];
     // calculate [a] + [b] in each party
-    for (let p = 0; p < n; p++) {
-      let A = As[p][1];
-      let B = Bs[p][1];
-      results.push([BigInt(p+1), N*A + M*B])
+    for (let i = 1; i <= n; i++) {
+      let a_i = a_shares[i-1][1];
+      let b_i = b_shares[i-1][1];
+      results.push([BigInt(i), N*a_i + M*b_i])
     }
 
     expect(sss.reconstruct(results)).toEqual(N*a + M*b)
   });
 
+  // Gennaro-Rabin-Rabin multiplication protocol
+  // https://dl.acm.org/doi/10.1145/277697.277716
   it('[ab] = l1[c1] + l2[c2] + l3[c3]', function() {
     const n = 3;
     const k = 2;
