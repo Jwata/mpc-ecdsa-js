@@ -1,17 +1,13 @@
 import * as sss from './shamir_secret_sharing';
 import { Point } from './polynomial';
 
-type MPCConfig = {
-  n: number,
-  k: number,
-}
-
 class Variable {
   name: string;
   secret: bigint;
   shares: { [x: string]: bigint };
   constructor(name: string) {
     this.name = name;
+    this.shares = {};
   }
   setShare(id: bigint|number, value: bigint) {
     this.shares[String(id)] = value;
@@ -34,15 +30,30 @@ class Variable {
   }
 }
 
+const _KEY_PARTIES = 'parties';
+
 class Party {
   id: number;
   peers: number[];
+  session: Session;
   constructor(id: number, peers: number[]) {
     this.id = id;
     this.peers = peers;
   }
   async connect() {
     // TODO: connect with peers
+    let parties = await this.session.register(this.id);
+
+    function isReady(parties: Set<number>): boolean {
+      if (!parties.has(this.id)) return false;
+      for (let pId of this.peers) {
+        if (!parties.has(pId)) return false;
+      }
+      return true;
+    }
+    while (!isReady(parties)) {
+      parties = await this.session.onPartiesChange();
+    }
   }
   async disconnect() {
     // TODO: disconnect with peers
@@ -56,6 +67,49 @@ class Party {
   async ensureShare(_v: Variable) {
     // TODO: ensure the share has already given by another party.
   }
+}
+
+class Session {
+  async onChange(key:string): Promise<string> {
+    const p: Promise<string> = new Promise((resolve, _reject) => {
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.storageArea != localStorage) return;
+        if (event.key != key) return;
+        resolve(event.newValue);
+      });
+    })
+    return p;
+  }
+
+  async register(id: number): Promise<Set<number>> {
+    const parties = await this.getParties();
+    parties.add(id);
+    await this.setParties(parties);
+    return parties;
+  }
+  async getParties(): Promise<Set<number>> {
+    const parties = JSON.parse(window.localStorage.getItem(_KEY_PARTIES));
+    return new Set(parties);
+  }
+  async setParties(parties: Set<number>) {
+    window.localStorage.setItem(
+      _KEY_PARTIES, JSON.stringify(Array.from(parties)));
+  }
+
+  async onPartiesChange(): Promise<Set<number>> {
+    return this.onChange(_KEY_PARTIES).then((parties) => {
+      return new Set(JSON.parse(parties));
+    });
+  }
+}
+
+function mpCompute(
+  p: Party, n: number, k: number, func: (mpc: MPC) => Variable) {
+  const mpc = new MPC(p, n, k);
+  p.connect();
+  const result = func(mpc);
+  p.sendResult(result);
+  p.disconnect();
 }
 
 // MPC arithmetic APIs
@@ -98,13 +152,9 @@ class MPC {
   }
 }
 
-function mpCompute(
-  p: Party, n: number, k: number, func: (mpc: MPC) => Variable) {
-  const mpc = new MPC(p, n, k);
-  p.connect();
-  const result = func(mpc);
-  p.sendResult(result);
-  p.disconnect();
+type MPCConfig = {
+  n: number,
+  k: number,
 }
 
-export { MPCConfig, Variable, Party, MPC, mpCompute };
+export { Variable, Party, MPC, mpCompute };
