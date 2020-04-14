@@ -1,5 +1,5 @@
 import * as sss from './shamir_secret_sharing';
-import { Variable, Party } from './mpc';
+import { Variable, Party, LocalStorageSession } from './mpc';
 
 describe('Variable', function() {
   it('holds sahres', function() {
@@ -52,11 +52,41 @@ describe('Variable', function() {
 });
 
 describe('Party', function() {
-  it('sends share to peer', function() {
-    const id = 1;
-    const peers = [2, 3];
-    const p = new Party(id, peers);
-    p.connect();
+  it('sends share to peer', async function() {
+    const session = new LocalStorageSession('test');
+    const p1 = new Party(1, [1, 2], session);
+    const p2 = new Party(2, [1, 3], session);
+    const p3 = new Party(3, [2, 3], session);
+
+    // TODO: register in parallel
+    await p1.connect();
+    await p2.connect();
+    await p3.connect();
+
+    // all parties should connect each other
+    expect(await p1.session.getParties()).toEqual(new Set([1,2,3]));
+    expect(await p2.session.getParties()).toEqual(new Set([1,2,3]));
+    expect(await p3.session.getParties()).toEqual(new Set([1,2,3]));
+
+    // prepare secret 'a' and shares
+    const a1 = new Variable('a');
+    a1.secret = 1n;
+    const n = 3;
+    const k = 2;
+    a1.split(n, k);
+
+    // p1 sends shares to peers
+    await p1.sendShare(a1, 2);
+    await p1.sendShare(a1, 3);
+
+    // peers should have the shares
+    const a2 = new Variable('a')
+    expect(await p2.ensureShare(a2)).toBeTrue();
+    expect(a2.getShare(2)).toEqual(a1.getShare(2));
+
+    const a3 = new Variable('a')
+    expect(await p3.ensureShare(a3)).toBeTrue();
+    expect(a3.getShare(3)).toEqual(a1.getShare(3));
   });
 
   it('ensures share', function() {
