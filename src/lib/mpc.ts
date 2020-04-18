@@ -5,9 +5,10 @@ class Variable {
   name: string;
   secret: bigint;
   shares: { [x: string]: bigint };
-  constructor(name: string) {
+  constructor(name: string, secret?: bigint) {
     this.name = name;
     this.shares = {};
+    this.secret = secret;
   }
   setShare(id: bigint | number, value: bigint) {
     this.shares[String(id)] = value;
@@ -31,6 +32,10 @@ class Variable {
 }
 
 class Party {
+  // variable name space
+  _KEY_VARS = 'vars';
+
+  // party ID
   id: number;
   peers: number[];
   session: Session;
@@ -62,20 +67,21 @@ class Party {
     // TODO: send result to dealer
   }
   async sendShare(v: Variable, peerId: number) {
-    return this.session.sendShare(
-      peerId, v.name, v.getShare(peerId));
+    return this.session.send(
+      peerId, v.name, String(v.getShare(peerId)));
   }
-  async ensureShare(v: Variable): Promise<boolean> {
-    // TODO: ensure the share has already given by another party.
-    const p: Promise<boolean> = new Promise(async (resolve, reject) => {
-      const value = await this.session.getShare(this.id, v.name);
-      if (value) {
-        v.setShare(this.id, value);
-        return resolve(true);
-      }
-      reject("Not Found");
+  async awaitShare(v: Variable): Promise<boolean> {
+    // TODO: set lock to avoid race condition
+    const value = await this.session.retrieve(this.id, v.name)
+    if (value) {
+      v.setShare(this.id, BigInt(value));
+      return true;
+    }
+    return this.session.recieve(this.id, v.name).then((value: string) => {
+      if (!value) throw "no data recieved";
+      v.setShare(this.id, BigInt(value));
+      return true;
     });
-    return p;
   }
 }
 
@@ -83,68 +89,59 @@ class Party {
 interface Session {
   register: (id: number) => Promise<Set<number>>;
   getParties: () => Promise<Set<number>>;
-  sendShare: (id: number, name: string, value: bigint) => Promise<void>;
-  getShare: (id: number, name: string) => Promise<bigint>;
-  // onChange: (key: string) => Promise<string>;
+  send: (id: number, key: string, value: any) => Promise<void>;
+  recieve: (id: number, key: string) => Promise<string>;
+  retrieve: (id: number, key: string) => Promise<string>;
 }
 
 // LocalStorageSession emulates p2p communications with localStorage
 class LocalStorageSession implements Session {
   // constants for local storage keys
   _KEY_PARTIES = 'parties';
-  _KEY_VARS = 'vars';
   // session name
   name: string;
   constructor(name: string) {
     this.name = name;
   }
-  async onChange(key: string): Promise<string> {
-    const p: Promise<string> = new Promise((resolve, _reject) => {
-      window.addEventListener('storage', (event: StorageEvent) => {
-        if (event.storageArea != localStorage) return;
-        if (event.key != key) return;
-        resolve(event.newValue);
-      });
-    })
-    return p;
-  }
   async register(id: number): Promise<Set<number>> {
     // TODO: take mutex to avoid overrides
     const parties = await this.getParties();
     parties.add(id);
-    await this.setParties(parties);
+    this.setItem(this._KEY_PARTIES, Array.from(parties));
     return parties;
   }
   async getParties(): Promise<Set<number>> {
     return new Set(this.getItem(this._KEY_PARTIES));
   }
-  async setParties(parties: Set<number>) {
-    this.setItem(this._KEY_PARTIES, Array.from(parties));
+  async send(pId: number, key: string, value: any) {
+    return this.setItem(this.getStorageKey(pId, key), value);
   }
-  async sendShare(pId: number, name: string, value: bigint) {
-    // TODO: base64 encoding
-    const key = this.shareKey(pId, name);
-    this.setItem(key, String(value));
+  async retrieve(id: number, key: string): Promise<any> {
+    return this.getItem(this.getStorageKey(id, key));
   }
-  async getShare(id: number, name: string): Promise<bigint> {
-    // TODO: base64 decoding
-    const key = this.shareKey(id, name);
-    return BigInt(this.getItem(key));
+  recieve(id: number, key: string): Promise<any> {
+    return this.onChange(this.getStorageKey(id, key));
   }
-  shareKey(id: number, name: string): string {
-    return `${this._KEY_VARS}/p${id}/${name}`;
+  getStorageKey(id: number, key: string): string {
+    return `p${id}/${key}`;
   }
   setItem(key: string, value: any) {
+    if (!value) return;
     window.localStorage.setItem(key, JSON.stringify(value));
   }
   getItem(key: string) {
-    return JSON.parse(window.localStorage.getItem(key));
+    const v = JSON.parse(window.localStorage.getItem(key));
+    return v;
   }
-  // async onPartiesChange(): Promise<Set<number>> {
-  //   return this.onChange(this._KEY_PARTIES).then((parties) => {
-  //     return new Set(JSON.parse(parties));
-  //   });
-  // }
+  onChange(key: string): Promise<string> {
+    return new Promise((resolve, _reject) => {
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.storageArea != localStorage) return;
+        if (event.key != key) return;
+        resolve(JSON.parse(event.newValue));
+      });
+    });
+  }
 }
 
 function mpCompute(
@@ -167,8 +164,8 @@ class MPC {
   }
   async add(c: Variable, a: Variable, b: Variable) {
     // TODO: await in parallel
-    await this.p.ensureShare(a);
-    await this.p.ensureShare(b);
+    await this.p.awaitShare(a);
+    await this.p.awaitShare(b);
     let cValue = a.getShare(this.p.id) + b.getShare(this.p.id);
     return c.setShare(this.p.id, cValue);
   }
@@ -188,7 +185,7 @@ class MPC {
     const ab = new Variable(`${a.name}${b.name}`);
     for (let i = 1; i <= this.conf.n; i++) {
       let abRemote = new Variable(`${a.name}${b.name}#${i}`);
-      await this.p.ensureShare(abRemote);
+      await this.p.awaitShare(abRemote);
       ab.setShare(i, abRemote.getShare(i))
     }
 
