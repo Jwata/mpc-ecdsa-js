@@ -54,9 +54,9 @@ describe('Variable', function() {
 describe('Party', function() {
   it('sends share to peer', async function() {
     const session = new LocalStorageSession('test');
-    const p1 = new Party(1, [1, 2], session);
-    const p2 = new Party(2, [1, 3], session);
-    const p3 = new Party(3, [2, 3], session);
+    const p1 = new Party(1, session);
+    const p2 = new Party(2, session);
+    const p3 = new Party(3, session);
 
     // TODO: register in parallel
     await p1.connect();
@@ -78,19 +78,19 @@ describe('Party', function() {
 
     // peers should have the shares
     const a2 = new Variable('a')
-    expect(await p2.awaitShare(a2)).toBeTrue();
+    expect(await p2.receiveShare(a2)).toBeTrue();
     expect(a2.getShare(2)).toEqual(a1.getShare(2));
 
     const a3 = new Variable('a')
-    expect(await p3.awaitShare(a3)).toBeTrue();
+    expect(await p3.receiveShare(a3)).toBeTrue();
     expect(a3.getShare(3)).toEqual(a1.getShare(3));
   });
 
   it('ensures share', async function() {
     const session = new LocalStorageSession('test');
-    const p1 = new Party(1, [1, 2], session);
-    const p2 = new Party(2, [1, 3], session);
-    const p3 = new Party(3, [2, 3], session);
+    const p1 = new Party(1, session);
+    const p2 = new Party(2, session);
+    const p3 = new Party(3, session);
 
     // TODO: register in parallel
     await p1.connect();
@@ -99,7 +99,7 @@ describe('Party', function() {
 
     // Party1 waits a share of 'a'
     const a1 = new Variable('a');
-    const received = p1.awaitShare(a1);
+    const received = p1.receiveShare(a1);
 
     const a2 = new Variable('a', 1n);
     a2.split(3, 2);
