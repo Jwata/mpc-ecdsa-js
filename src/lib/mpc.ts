@@ -95,11 +95,13 @@ class LocalStorageSession implements Session {
   }
   async send(pId: number, key: string, value: any) {
     // TODO: send multiple times
+    console.log('send', pId, key, value);
     return this.setItem(this.getStorageKey(pId, key), value);
   }
   async recieve(id: number, key: string): Promise<any> {
     const storageKey = this.getStorageKey(id, key);
     const value = this.getItem(storageKey);
+    console.log('recieve', value);
     if (value) {
       return value;
     }
@@ -117,10 +119,12 @@ class LocalStorageSession implements Session {
     return v;
   }
   onChange(key: string): Promise<string> {
+    console.log('onChange event listening', key);
     return new Promise((resolve, _reject) => {
       window.addEventListener('storage', (event: StorageEvent) => {
         if (event.storageArea != localStorage) return;
         if (event.key != key) return;
+        console.log('storageEvent', key, event.newValue);
         resolve(JSON.parse(event.newValue));
       });
     });
@@ -149,7 +153,9 @@ class MPC {
   async add(c: Variable, a: Variable, b: Variable) {
     // TODO: await in parallel
     await this.p.receiveShare(a);
+    console.log(a);
     await this.p.receiveShare(b);
+    console.log(b);
     let cValue = a.getShare(this.p.id) + b.getShare(this.p.id);
     return c.setShare(this.p.id, cValue);
   }

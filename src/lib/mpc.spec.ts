@@ -1,6 +1,22 @@
 import * as sss from './shamir_secret_sharing';
 import { Variable, Party, LocalStorageSession, MPC } from './mpc';
 
+function emulateStoageEvent() {
+  // emulate storage event
+  const setItemStub = spyOn(window.localStorage, 'setItem')
+  setItemStub.and.callFake((key: string, value: string) => {
+    setItemStub.and.callThrough();
+    const event: StorageEventInit = {
+      storageArea: localStorage,
+      key: key,
+      newValue: value,
+      oldValue: null,
+    }
+    console.log(event);
+    window.dispatchEvent(new StorageEvent('storage', event))
+  });
+};
+
 describe('Variable', function() {
   it('holds sahres', function() {
     const a = new Variable('a')
@@ -64,9 +80,9 @@ describe('Party', function() {
     await p3.connect();
 
     // all parties should connect each other
-    expect(await p1.session.getParties()).toEqual(new Set([1,2,3]));
-    expect(await p2.session.getParties()).toEqual(new Set([1,2,3]));
-    expect(await p3.session.getParties()).toEqual(new Set([1,2,3]));
+    expect(await p1.session.getParties()).toEqual(new Set([1, 2, 3]));
+    expect(await p2.session.getParties()).toEqual(new Set([1, 2, 3]));
+    expect(await p3.session.getParties()).toEqual(new Set([1, 2, 3]));
 
     // prepare secret 'a' and shares
     const a1 = new Variable('a', 1n);
@@ -104,18 +120,7 @@ describe('Party', function() {
     const a2 = new Variable('a', 1n);
     a2.split(3, 2);
 
-    // emulate storage event
-    const setItemStub = spyOn(window.localStorage, 'setItem')
-    setItemStub.and.callFake((key: string, value: string) => {
-      setItemStub.and.callThrough();
-      const event: StorageEventInit = {
-        storageArea: localStorage,
-        key: key,
-        newValue: value,
-        oldValue: null,
-      }
-      window.dispatchEvent(new StorageEvent('storage', event))
-    });
+    emulateStoageEvent();
 
     // use setInetrval to avoid race condition
     const h = setInterval(() => {
@@ -131,6 +136,22 @@ describe('MPC', function() {
   it('computes addition', async function() {
     const session = new LocalStorageSession('test');
     const p1 = new Party(1, session);
+    const dealer = new Party(999, session);
+
+    // Dealer sends shares
+    const h = setInterval(async () => {
+      dealer.connect();
+      const a = new Variable('a', 2n);
+      const b = new Variable('b', 3n);
+      a.split(3, 2);
+      b.split(3, 2);
+
+      emulateStoageEvent();
+      await dealer.sendShare(a, 1);
+      await dealer.sendShare(b, 1);
+      clearInterval(h);
+    }, 10);
+
     await MPC.compute(p1, 3, 2, async (mpc: MPC) => {
       const a = new Variable('a');
       const b = new Variable('b');
