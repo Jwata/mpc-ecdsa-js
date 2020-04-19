@@ -127,15 +127,6 @@ class LocalStorageSession implements Session {
   }
 }
 
-function mpCompute(
-  p: Party, n: number, k: number, func: (mpc: MPC) => Variable) {
-  const mpc = new MPC(p, n, k);
-  p.connect();
-  const result = func(mpc);
-  p.sendResult(result);
-  p.disconnect();
-}
-
 // MPC arithmetic APIs
 class MPC {
   p: Party;
@@ -144,6 +135,16 @@ class MPC {
     this.p = p;
     // TODO: validate n and k
     this.conf = { n: n, k: k };
+  }
+  static async compute(
+    p: Party, n: number, k: number, func: (mpc: MPC) => Promise<Variable>
+  ) {
+    const mpc = new MPC(p, n, k);
+    p.connect();
+    const result = await func(mpc);
+    console.log(result);
+    p.sendResult(result);
+    p.disconnect();
   }
   async add(c: Variable, a: Variable, b: Variable) {
     // TODO: await in parallel
@@ -181,4 +182,4 @@ type MPCConfig = {
   k: number,
 }
 
-export { Variable, Party, MPC, mpCompute, LocalStorageSession };
+export { Variable, Party, MPC, LocalStorageSession };

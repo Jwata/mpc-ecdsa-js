@@ -1,5 +1,5 @@
 import * as sss from './shamir_secret_sharing';
-import { Variable, Party, LocalStorageSession } from './mpc';
+import { Variable, Party, LocalStorageSession, MPC } from './mpc';
 
 describe('Variable', function() {
   it('holds sahres', function() {
@@ -86,7 +86,7 @@ describe('Party', function() {
     expect(a3.getShare(3)).toEqual(a1.getShare(3));
   });
 
-  it('ensures share', async function() {
+  it('recieves share', async function() {
     const session = new LocalStorageSession('test');
     const p1 = new Party(1, session);
     const p2 = new Party(2, session);
@@ -125,4 +125,18 @@ describe('Party', function() {
 
     expect(await received).toBeTrue();
   });
-})
+});
+
+describe('MPC', function() {
+  it('computes addition', async function() {
+    const session = new LocalStorageSession('test');
+    const p1 = new Party(1, session);
+    await MPC.compute(p1, 3, 2, async (mpc: MPC) => {
+      const a = new Variable('a');
+      const b = new Variable('b');
+      const c = new Variable('c');
+      await mpc.add(c, a, b);
+      return c;
+    });
+  });
+});
