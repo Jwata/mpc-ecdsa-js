@@ -147,6 +147,7 @@ describe('MPC', function() {
       b.split(3, 2);
 
       emulateStoageEvent();
+
       await dealer.sendShare(a, 1);
       await dealer.sendShare(b, 1);
       clearInterval(h);

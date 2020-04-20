@@ -43,12 +43,6 @@ class Party {
     // TODO: set mutex to avoid conflicts
     return this.session.register(this.id);
   }
-  async disconnect() {
-    // TODO: disconnect with peers
-  }
-  async sendResult(_r: Variable) {
-    // TODO: send result to dealer
-  }
   async sendShare(v: Variable, peerId: number) {
     return this.session.send(
       peerId, v.name, String(v.getShare(peerId)));
@@ -147,8 +141,6 @@ class MPC {
     p.connect();
     const result = await func(mpc);
     console.log(result);
-    p.sendResult(result);
-    p.disconnect();
   }
   async add(c: Variable, a: Variable, b: Variable) {
     // TODO: await in parallel
