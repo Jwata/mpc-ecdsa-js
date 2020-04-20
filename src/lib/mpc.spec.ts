@@ -1,27 +1,37 @@
 import * as sss from './shamir_secret_sharing';
 import { Variable, Party, LocalStorageSession, MPC } from './mpc';
 
-function emulateStoageEvent() {
+function emulateStoageEvent(): jasmine.Spy {
   // emulate storage event
-  const setItemStub = spyOn(window.localStorage, 'setItem')
-  setItemStub.and.callFake((key: string, value: string) => {
-    setItemStub.and.callThrough();
-    const event: StorageEventInit = {
-      storageArea: localStorage,
-      key: key,
-      newValue: value,
-      oldValue: null,
-    }
-    console.log(event);
-    window.dispatchEvent(new StorageEvent('storage', event))
-  });
+  const setItemStub = spyOn(window.localStorage, 'setItem');
+  return fakeSetItem(setItemStub);
 };
 
-function background(f: () => void, delay: number = 0) {
-  const id = setInterval(() => {
-    f();
-    clearInterval(id);
-  }, delay);
+function fakeSetItem(stub: jasmine.Spy): jasmine.Spy {
+  stub.and.callFake((key: string, value: string) => {
+    console.log(key, value);
+    return ((k: string, v: string) => {
+      stub.and.callThrough();
+      const event: StorageEventInit = {
+        storageArea: localStorage,
+        key: k,
+        newValue: v,
+        oldValue: null,
+      }
+      console.log(event);
+      window.dispatchEvent(new StorageEvent('storage', event))
+    })(key, value);
+  });
+  return stub;
+}
+
+async function background(f: () => void, delay: number = 0) {
+  return new Promise((resolve, _reject) => {
+    const id = setInterval(() => {
+      clearInterval(id);
+      resolve(f());
+    }, delay);
+  });
 }
 
 describe('Variable', function() {
@@ -73,7 +83,6 @@ describe('Variable', function() {
     expect(a.secret).toEqual(secret);
   });
 });
-
 describe('Party', function() {
   it('sends share to peer', async function() {
     const session = LocalStorageSession.init('test');
@@ -152,6 +161,8 @@ describe('MPC', function() {
     p3.connect();
     dealer.connect();
 
+    const stub = emulateStoageEvent();
+
     // Each party does calculation
     for (let p of [p1, p2, p3]) {
       background(async () => {
@@ -161,26 +172,34 @@ describe('MPC', function() {
         const b = new Variable('b');
         const c = new Variable('c');
         await mpc.add(c, a, b);
-        mpc.p.sendShare(dealer.id, c);
+        fakeSetItem(stub);
+        mpc.p.sendShare(dealer.id, c, p.id);
       });
     }
 
     // Dealer sends shares and recieves the computed shares from each party
-    // const a = new Variable('a', 2n);
-    // const b = new Variable('b', 3n);
-    // a.split(3, 2);
-    // b.split(3, 2);
+    await background(async () => {
+      const a = new Variable('a', 2n);
+      const b = new Variable('b', 3n);
+      const c = new Variable('c');
 
-    // emulateStoageEvent();
+      a.split(3, 2);
+      b.split(3, 2);
 
-    // for (let pId of [1, 2, 3]) {
-    //   await dealer.sendShare(pId, a.name, a.getShare(pId));
-    //   await dealer.sendShare(pId, b.name, b.getShare(pId));
-    // }
+      for (let pId of [1, 2, 3]) {
+        fakeSetItem(stub);
+        await dealer.sendShare(pId, a);
+      }
 
-    // const c = new Variable('c');
-    // await dealer.receiveShare(c.name);
-    // expect(c.reconstruct()).toEqual(a.secret * b.secret);
-    // console.log(c.secret);
+      for (let pId of [1, 2, 3]) {
+        fakeSetItem(stub);
+        await dealer.sendShare(pId, b);
+      }
+
+      for (let pId of [1, 2, 3]) {
+        await dealer.receiveShare(c, pId);
+      }
+      expect(c.reconstruct()).toEqual(a.secret * b.secret);
+    });
   });
 });
