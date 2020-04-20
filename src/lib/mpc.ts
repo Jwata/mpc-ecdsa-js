@@ -43,16 +43,23 @@ class Party {
     // TODO: set mutex to avoid conflicts
     return this.session.register(this.id);
   }
-  async sendShare(v: Variable, peerId: number) {
-    return this.session.send(
-      peerId, v.name, String(v.getShare(peerId)));
+  async sendShare(pId: number, v: Variable, shareId?: number) {
+    if (!shareId) shareId = pId;
+    console.log(`sendShare: from=${this.id} to=${pId} name=(${v.name} value=${v.getShare(shareId)}, shareID:${shareId}`);
+    const key = this._shareKey(v.name, shareId);
+    return this.session.send(pId, key, String(v.getShare(shareId)));
   }
-  async receiveShare(v: Variable): Promise<boolean> {
-    return this.session.recieve(this.id, v.name).then((value: string) => {
+  async receiveShare(v: Variable, shareId?: number): Promise<boolean> {
+    if (!shareId) shareId = this.id;
+    const key = this._shareKey(v.name, shareId);
+    return this.session.recieve(this.id, key).then((value: string) => {
       if (!value) throw "no data recieved";
-      v.setShare(this.id, BigInt(value));
+      v.setShare(shareId, BigInt(value));
       return true;
     });
+  }
+  _shareKey(name: string, id: number): string {
+    return `vars/${name}/shares/${id}`;
   }
 }
 
@@ -77,6 +84,13 @@ class LocalStorageSession implements Session {
   constructor(name: string) {
     this.name = name;
   }
+  static init(name: string): LocalStorageSession {
+    this.clearItems();
+    return new this(name);
+  }
+  static clearItems() {
+    window.localStorage.clear();
+  }
   async register(id: number): Promise<Set<number>> {
     // TODO: take mutex to avoid overrides
     const parties = await this.getParties();
@@ -89,7 +103,6 @@ class LocalStorageSession implements Session {
   }
   async send(pId: number, key: string, value: any) {
     // TODO: send multiple times
-    console.log('send', pId, key, value);
     return this.setItem(this.getStorageKey(pId, key), value);
   }
   async recieve(id: number, key: string): Promise<any> {
@@ -129,25 +142,21 @@ class LocalStorageSession implements Session {
 class MPC {
   p: Party;
   conf: MPCConfig;
-  constructor(p: Party, n: number, k: number) {
+  constructor(p: Party, conf: MPCConfig) {
     this.p = p;
-    // TODO: validate n and k
-    this.conf = { n: n, k: k };
+    this.conf = conf;
   }
-  static async compute(
-    p: Party, n: number, k: number, func: (mpc: MPC) => Promise<Variable>
-  ) {
-    const mpc = new MPC(p, n, k);
-    p.connect();
-    const result = await func(mpc);
-    console.log(result);
-  }
+  // static async compute(
+  //   p: Party, conf: MPCConfig, func: (mpc: MPC) => Promise<Variable>
+  // ) {
+  //   const mpc = new MPC(p, conf);
+  //   p.connect();
+  //   return func(mpc);
+  // }
   async add(c: Variable, a: Variable, b: Variable) {
     // TODO: await in parallel
     await this.p.receiveShare(a);
-    console.log(a);
     await this.p.receiveShare(b);
-    console.log(b);
     let cValue = a.getShare(this.p.id) + b.getShare(this.p.id);
     return c.setShare(this.p.id, cValue);
   }
@@ -159,7 +168,7 @@ class MPC {
     // broadcast shares of `ab` to peers
     // TODO: await in parallel
     for (let pId in abLocal.shares) {
-      await this.p.sendShare(abLocal, Number(pId));
+      await this.p.sendShare(Number(pId), abLocal);
     }
 
     // collect `ab` from peers
@@ -180,4 +189,4 @@ type MPCConfig = {
   k: number,
 }
 
-export { Variable, Party, MPC, LocalStorageSession };
+export { Variable, Party, MPC, MPCConfig, LocalStorageSession };

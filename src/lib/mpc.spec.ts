@@ -17,6 +17,13 @@ function emulateStoageEvent() {
   });
 };
 
+function background(f: () => void, delay: number = 0) {
+  const id = setInterval(() => {
+    f();
+    clearInterval(id);
+  }, delay);
+}
+
 describe('Variable', function() {
   it('holds sahres', function() {
     const a = new Variable('a')
@@ -69,7 +76,7 @@ describe('Variable', function() {
 
 describe('Party', function() {
   it('sends share to peer', async function() {
-    const session = new LocalStorageSession('test');
+    const session = LocalStorageSession.init('test');
     const p1 = new Party(1, session);
     const p2 = new Party(2, session);
     const p3 = new Party(3, session);
@@ -89,8 +96,8 @@ describe('Party', function() {
     a1.split(3, 2);
 
     // p1 sends shares to peers
-    await p1.sendShare(a1, 2);
-    await p1.sendShare(a1, 3);
+    await p1.sendShare(2, a1);
+    await p1.sendShare(3, a1);
 
     // peers should have the shares
     const a2 = new Variable('a')
@@ -103,7 +110,7 @@ describe('Party', function() {
   });
 
   it('recieves share', async function() {
-    const session = new LocalStorageSession('test');
+    const session = LocalStorageSession.init('test');
     const p1 = new Party(1, session);
     const p2 = new Party(2, session);
     const p3 = new Party(3, session);
@@ -122,11 +129,9 @@ describe('Party', function() {
 
     emulateStoageEvent();
 
-    // use setInetrval to avoid race condition
-    const h = setInterval(() => {
-      p2.sendShare(a2, 1);
-      clearInterval(h);
-    }, 0);
+    background(() => {
+      p2.sendShare(1, a2);
+    });
 
     expect(await received).toBeTrue();
   });
@@ -134,31 +139,48 @@ describe('Party', function() {
 
 describe('MPC', function() {
   it('computes addition', async function() {
-    const session = new LocalStorageSession('test');
+    const session = LocalStorageSession.init('test');
     const p1 = new Party(1, session);
+    const p2 = new Party(2, session);
+    const p3 = new Party(3, session);
     const dealer = new Party(999, session);
+    const conf = { n: 3, k: 2, dist: dealer.id }
 
-    // Dealer sends shares
-    const h = setInterval(async () => {
-      dealer.connect();
-      const a = new Variable('a', 2n);
-      const b = new Variable('b', 3n);
-      a.split(3, 2);
-      b.split(3, 2);
+    // All participants connect to the network
+    p1.connect();
+    p2.connect();
+    p3.connect();
+    dealer.connect();
 
-      emulateStoageEvent();
+    // Each party does calculation
+    for (let p of [p1, p2, p3]) {
+      background(async () => {
+        const mpc = new MPC(p, conf);
 
-      await dealer.sendShare(a, 1);
-      await dealer.sendShare(b, 1);
-      clearInterval(h);
-    }, 10);
+        const a = new Variable('a');
+        const b = new Variable('b');
+        const c = new Variable('c');
+        await mpc.add(c, a, b);
+        mpc.p.sendShare(dealer.id, c);
+      });
+    }
 
-    await MPC.compute(p1, 3, 2, async (mpc: MPC) => {
-      const a = new Variable('a');
-      const b = new Variable('b');
-      const c = new Variable('c');
-      await mpc.add(c, a, b);
-      return c;
-    });
+    // Dealer sends shares and recieves the computed shares from each party
+    // const a = new Variable('a', 2n);
+    // const b = new Variable('b', 3n);
+    // a.split(3, 2);
+    // b.split(3, 2);
+
+    // emulateStoageEvent();
+
+    // for (let pId of [1, 2, 3]) {
+    //   await dealer.sendShare(pId, a.name, a.getShare(pId));
+    //   await dealer.sendShare(pId, b.name, b.getShare(pId));
+    // }
+
+    // const c = new Variable('c');
+    // await dealer.receiveShare(c.name);
+    // expect(c.reconstruct()).toEqual(a.secret * b.secret);
+    // console.log(c.secret);
   });
 });
