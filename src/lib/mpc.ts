@@ -45,7 +45,7 @@ class Party {
   }
   async sendShare(pId: number, v: Variable, shareId?: number) {
     if (!shareId) shareId = pId;
-    console.log(`sendShare: from=${this.id} to=${pId} name=(${v.name} value=${v.getShare(shareId)}, shareID:${shareId}`);
+    console.log(`sendShare: from=${this.id} to=${pId} name=${v.name} value=${v.getShare(shareId)}, shareID:${shareId}`);
     const key = this._shareKey(v.name, shareId);
     return this.session.send(pId, key, String(v.getShare(shareId)));
   }
@@ -55,7 +55,11 @@ class Party {
     return this.session.recieve(this.id, key).then((value: string) => {
       if (!value) throw "no data recieved";
       v.setShare(shareId, BigInt(value));
+      console.log('recieveShare', key, BigInt(value));
       return true;
+    }).catch((e) => {
+      console.error(e);
+      return false;
     });
   }
   _shareKey(name: string, id: number): string {
@@ -103,12 +107,13 @@ class LocalStorageSession implements Session {
   }
   async send(pId: number, key: string, value: any) {
     // TODO: send multiple times
+    console.log(`session.send: key=${this.getStorageKey(pId, key)}, value=${value}`);
     return this.setItem(this.getStorageKey(pId, key), value);
   }
   async recieve(id: number, key: string): Promise<any> {
     const storageKey = this.getStorageKey(id, key);
     const value = this.getItem(storageKey);
-    console.log('recieve', value);
+    console.log(`session.recieve: key=${storageKey}, value=${value}`);
     if (value) {
       return value;
     }
@@ -126,12 +131,13 @@ class LocalStorageSession implements Session {
     return v;
   }
   onChange(key: string): Promise<string> {
-    console.log('onChange event listening', key);
+    console.log(`session.onChange: listening key=${key}`);
     return new Promise((resolve, _reject) => {
       window.addEventListener('storage', (event: StorageEvent) => {
+        console.log('session.onChange: recieved event', event.key, key);
         if (event.storageArea != localStorage) return;
         if (event.key != key) return;
-        console.log('storageEvent', key, event.newValue);
+        console.log('session.onChange: storageEvent', key, JSON.parse(event.newValue));
         resolve(JSON.parse(event.newValue));
       });
     });
