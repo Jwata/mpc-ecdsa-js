@@ -1,24 +1,17 @@
 import * as sss from './shamir_secret_sharing';
 import { Variable, Party, LocalStorageSession, MPC } from './mpc';
 
-function emulateStoageEvent(): jasmine.Spy {
-  // emulate storage event
-  const setItemStub = spyOn(window.localStorage, 'setItem');
-  return fakeSetItem(setItemStub);
-};
-
 function fakeSetItem(stub: jasmine.Spy): jasmine.Spy {
   stub.and.callFake((key: string, value: string) => {
-    console.log(key, value);
     return ((k: string, v: string) => {
       stub.and.callThrough();
+      window.localStorage.setItem(k, v);
       const event: StorageEventInit = {
         storageArea: localStorage,
         key: k,
         newValue: v,
         oldValue: null,
       }
-      console.log(event);
       window.dispatchEvent(new StorageEvent('storage', event))
     })(key, value);
   });
@@ -136,9 +129,11 @@ describe('Party', function() {
     const a2 = new Variable('a', 1n);
     a2.split(3, 2);
 
-    emulateStoageEvent();
+    // stub setItem to emulate StorageEvent
+    const setItemStub = spyOn(window.localStorage, 'setItem');
 
     background(() => {
+      fakeSetItem(setItemStub);
       p2.sendShare(1, a2);
     });
 
@@ -161,7 +156,8 @@ describe('MPC', function() {
     p3.connect();
     dealer.connect();
 
-    const stub = emulateStoageEvent();
+    // stub setItem to emulate StorageEvent
+    const setItemStub = spyOn(window.localStorage, 'setItem');
 
     // Each party does calculation
     for (let p of [p1, p2, p3]) {
@@ -172,7 +168,7 @@ describe('MPC', function() {
         const b = new Variable('b');
         const c = new Variable('c');
         await mpc.add(c, a, b);
-        fakeSetItem(stub);
+        fakeSetItem(setItemStub);
         mpc.p.sendShare(dealer.id, c, p.id);
       });
     }
@@ -187,19 +183,19 @@ describe('MPC', function() {
       b.split(3, 2);
 
       for (let pId of [1, 2, 3]) {
-        fakeSetItem(stub);
+        fakeSetItem(setItemStub);
         await dealer.sendShare(pId, a);
       }
 
       for (let pId of [1, 2, 3]) {
-        fakeSetItem(stub);
+        fakeSetItem(setItemStub);
         await dealer.sendShare(pId, b);
       }
 
       for (let pId of [1, 2, 3]) {
         await dealer.receiveShare(c, pId);
       }
-      expect(c.reconstruct()).toEqual(a.secret * b.secret);
+      expect(c.reconstruct()).toEqual(a.secret + b.secret);
     });
   });
 });
