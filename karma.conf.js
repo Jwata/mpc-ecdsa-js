@@ -2,7 +2,7 @@ const webpackConfig = require('./webpack.config');
 
 module.exports = (config) => {
   config.set({
-    frameworks: ['jasmine'],
+    frameworks: ['jasmine', 'sinon'],
     files: ['src/**/*.spec.ts'],
     preprocessors: {
       'src/**/*.spec.ts': ['webpack'],
@@ -17,7 +17,7 @@ module.exports = (config) => {
     browsers: ['ChromeHeadless'],
     singleRun: true,
     client: {
-      captureConsole: false,
+      captureConsole: true,
     }
   });
 };
