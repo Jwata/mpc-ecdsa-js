@@ -1,0 +1,13 @@
+---
+env:
+  browser: true
+  es2020: true
+globals:
+  Atomics: readonly
+  SharedArrayBuffer: readonly
+parser: babel-eslint
+parserOptions:
+  sourceType: module
+  allowImportExportEverywhere: true
+  ecmaVersion: 2020
+rules: {}
