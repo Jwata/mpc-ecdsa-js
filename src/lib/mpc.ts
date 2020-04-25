@@ -49,13 +49,12 @@ class Party {
     const key = this._shareKey(v.name, shareId);
     return this.session.send(pId, key, String(v.getShare(shareId)));
   }
-  async receiveShare(v: Variable, shareId?: number, setId?: number): Promise<boolean> {
+  async receiveShare(v: Variable, shareId?: number): Promise<boolean> {
     if (!shareId) shareId = this.id;
-    if (!setId) setId = this.id;
     const key = this._shareKey(v.name, shareId);
     return this.session.recieve(this.id, key).then((value: string) => {
       if (!value) throw "no data recieved";
-      v.setShare(setId, BigInt(value));
+      v.setShare(shareId, BigInt(value));
       console.debug(`party.recieveShare: party=${this.id}, key=${key}, val=${value}`);
       return true;
     }).catch((e) => {
@@ -175,9 +174,8 @@ class MPC {
     await this.p.receiveShare(a);
     await this.p.receiveShare(b);
 
-    const abLocalVal = a.getShare(this.p.id) * b.getShare(this.p.id);
-    const abLocal = new Variable(`${a.name}${b.name}#${this.p.id}`, abLocalVal);
-                                ;
+    const abLocal = new Variable(`${a.name}${b.name}#${this.p.id}`);
+    abLocal.secret = a.getShare(this.p.id) * b.getShare(this.p.id);
     abLocal.split(this.conf.n, this.conf.k);
 
     // broadcast shares of `ab` to peers
@@ -188,9 +186,9 @@ class MPC {
 
     // collect `ab` from peers
     // TODO: await in parallel
-    let ab = new Variable(`${a.name}${b.name}`);
+    const ab = new Variable(`${a.name}${b.name}`);
     for (let i = 1; i <= this.conf.n; i++) {
-      const abRemote = new Variable(`${a.name}${b.name}#${i}`);
+      let abRemote = new Variable(`${a.name}${b.name}#${i}`);
       await this.p.receiveShare(abRemote);
       ab.setShare(i, abRemote.getShare(this.p.id))
     }

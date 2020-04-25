@@ -2,6 +2,7 @@ import * as sinon from 'sinon';
 import * as sss from './shamir_secret_sharing';
 import { Variable, Party, LocalStorageSession, MPC } from './mpc';
 
+// TODO: move to setup and recover teardown
 (function emulateStorageEvent() {
   const origSetItem = window.localStorage.setItem;
   sinon.stub(window.localStorage, 'setItem').callsFake((k: string, v: string) => {
@@ -128,16 +129,7 @@ describe('Party', function() {
     const a2 = new Variable('a', 1n);
     a2.split(3, 2);
 
-    // stub setItem to emulate StorageEvent
-    // sinon.stub(window.localStorage, 'setItem').callsFake((k: string, v: string) => {
-    //   sinon.spyCall
-    //   console.log(k, v);
-    // });
-    // const setItemStub = spyOn(window.localStorage, 'setItem');
     background(() => {
-      // emulateStorageEvent();
-
-      // fakeSetItem(setItemStub);
       p2.sendShare(1, a2);
     });
 
@@ -169,7 +161,6 @@ describe('MPC', function() {
         const b = new Variable('b');
         const c = new Variable('c');
         await mpc.add(c, a, b);
-        // fakeSetItem(setItemStub);
         mpc.p.sendShare(dealer.id, c, p.id);
       });
     }
@@ -180,16 +171,16 @@ describe('MPC', function() {
       const b = new Variable('b', 3n);
       const c = new Variable('c');
 
+      // broadcast shares of 'a' and 'b'
       a.split(3, 2);
       b.split(3, 2);
-
       for (let pId of [1, 2, 3]) {
         await dealer.sendShare(pId, a);
         await dealer.sendShare(pId, b);
       }
 
       for (let pId of [1, 2, 3]) {
-        await dealer.receiveShare(c, pId, pId);
+        await dealer.receiveShare(c, pId);
       }
       expect(c.reconstruct()).toEqual(a.secret + b.secret);
     });
@@ -237,9 +228,8 @@ describe('MPC', function() {
         await dealer.sendShare(pId, b);
       }
 
-      // wait shares of 'c'
       for (let pId of [1, 2, 3]) {
-        await dealer.receiveShare(c, pId, pId);
+        await dealer.receiveShare(c, pId);
       }
       expect(c.reconstruct()).toEqual(a.secret * b.secret);
     });
