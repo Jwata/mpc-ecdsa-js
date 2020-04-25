@@ -1,12 +1,12 @@
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
-
-const htmlWebpackPlugin = new HtmlWebpackPlugin({
-  template: 'src/index.html'}
-);
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  entry: './src/index.ts',
+  entry: {
+    index: './src/index.ts',
+    demo: './src/demo.ts',
+  },
   devtool: 'inline-source-map',
   mode: 'development',
   module: {
@@ -19,13 +19,23 @@ module.exports = {
     ]
   },
   resolve: {
-    extensions: [ '.ts', '.js' ],
+    extensions: ['.ts', '.js'],
   },
   output: {
-    filename: 'bundle.js',
+    filename: '[name].bundle.js',
     path: path.resolve(__dirname, 'dist'),
   },
   plugins: [
-    htmlWebpackPlugin
+    new CleanWebpackPlugin(),
+    new HtmlWebpackPlugin({
+      filename: 'index.html',
+      template: 'src/index.html',
+      chunks: ['index'],
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'demo.html',
+      template: 'src/demo.html',
+      chunks: ['demo'],
+    }),
   ]
 };

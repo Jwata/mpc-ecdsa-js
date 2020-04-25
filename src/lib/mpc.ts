@@ -5,10 +5,12 @@ class Variable {
   name: string;
   secret: bigint;
   shares: { [x: string]: bigint };
-  constructor(name: string, secret?: bigint) {
+  constructor(name: string, secret?: bigint | number) {
     this.name = name;
     this.shares = {};
-    this.secret = secret;
+    if (secret) {
+      this.secret = BigInt(secret);
+    }
   }
   setShare(id: bigint | number, value: bigint) {
     this.shares[String(id)] = value;
@@ -20,6 +22,7 @@ class Variable {
     for (let [pId, v] of sss.share(this.secret, n, k)) {
       this.setShare(pId, v);
     }
+    return this.shares;
   }
   reconstruct() {
     const points: Point[] = [];
@@ -93,7 +96,7 @@ class LocalStorageSession implements Session {
     return new this(name);
   }
   static clearItems() {
-    for (let i=0; i < window.localStorage.length; i++) {
+    for (let i = 0; i < window.localStorage.length; i++) {
       let key = window.localStorage.key(i);
       if (!key.startsWith(this.name)) continue;
       window.localStorage.removeItem(key);
@@ -155,13 +158,9 @@ class MPC {
     this.p = p;
     this.conf = conf;
   }
-  // static async compute(
-  //   p: Party, conf: MPCConfig, func: (mpc: MPC) => Promise<Variable>
-  // ) {
-  //   const mpc = new MPC(p, conf);
-  //   p.connect();
-  //   return func(mpc);
-  // }
+  split(v: Variable) {
+    return v.split(this.conf.n, this.conf.k);
+  }
   async add(c: Variable, a: Variable, b: Variable) {
     // TODO: await in parallel
     await this.p.receiveShare(a);
@@ -174,9 +173,9 @@ class MPC {
     await this.p.receiveShare(a);
     await this.p.receiveShare(b);
 
-    const abLocal = new Variable(`${a.name}${b.name}#${this.p.id}`);
-    abLocal.secret = a.getShare(this.p.id) * b.getShare(this.p.id);
-    abLocal.split(this.conf.n, this.conf.k);
+    const abLocalVal = a.getShare(this.p.id) * b.getShare(this.p.id);
+    const abLocal = new Variable(`${a.name}${b.name}#${this.p.id}`, abLocalVal);
+    this.split(abLocal)
 
     // broadcast shares of `ab` to peers
     // TODO: await in parallel

@@ -144,7 +144,7 @@ describe('MPC', function() {
     const p2 = new Party(2, session);
     const p3 = new Party(3, session);
     const dealer = new Party(999, session);
-    const conf = { n: 3, k: 2, dist: dealer.id }
+    const conf = { n: 3, k: 2 }
 
     // All participants connect to the network
     p1.connect();
@@ -167,13 +167,14 @@ describe('MPC', function() {
 
     // Dealer sends shares and recieves the computed shares from each party
     await background(async () => {
+      const mpc = new MPC(dealer, conf);
       const a = new Variable('a', 2n);
       const b = new Variable('b', 3n);
       const c = new Variable('c');
 
       // broadcast shares of 'a' and 'b'
-      a.split(3, 2);
-      b.split(3, 2);
+      mpc.split(a);
+      mpc.split(b);
       for (let pId of [1, 2, 3]) {
         await dealer.sendShare(pId, a);
         await dealer.sendShare(pId, b);
@@ -192,7 +193,7 @@ describe('MPC', function() {
     const p2 = new Party(2, session);
     const p3 = new Party(3, session);
     const dealer = new Party(999, session);
-    const conf = { n: 3, k: 2, dist: dealer.id }
+    const conf = { n: 3, k: 2 }
 
     // All participants connect to the network
     p1.connect();
@@ -216,18 +217,21 @@ describe('MPC', function() {
 
     // Dealer sends shares and recieves the computed shares from each party
     await background(async () => {
+      const mpc = new MPC(dealer, conf);
       const a = new Variable('a', 2n);
       const b = new Variable('b', 3n);
       const c = new Variable('c');
 
       // broadcast shares of 'a' and 'b'
-      a.split(3, 2);
-      b.split(3, 2);
+      mpc.split(a);
+      mpc.split(b);
+
       for (let pId of [1, 2, 3]) {
         await dealer.sendShare(pId, a);
         await dealer.sendShare(pId, b);
       }
 
+      // wait shares of 'c'
       for (let pId of [1, 2, 3]) {
         await dealer.receiveShare(c, pId);
       }
