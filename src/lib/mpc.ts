@@ -1,36 +1,52 @@
 import * as sss from './shamir_secret_sharing';
 import { Point } from './polynomial';
 
-class Variable {
+class Secret {
   name: string;
-  secret: bigint;
-  shares: { [x: string]: bigint };
-  constructor(name: string, secret?: bigint | number) {
+  value: bigint;
+  shares: { [key: string]: Share };
+  constructor(name: string, secret?: bigint) {
     this.name = name;
     this.shares = {};
-    if (secret) {
-      this.secret = BigInt(secret);
+    this.value = secret;
+  }
+  setShare(s: Share) {
+    this.shares[String(s.index)] = s;
+  }
+  getShare(idx: bigint | number): Share {
+    const key = String(idx);
+    if (!(key in this.shares)) {
+      this.shares[key] = new Share(this.name, Number(idx));
     }
-  }
-  setShare(id: bigint | number, value: bigint) {
-    this.shares[String(id)] = value;
-  }
-  getShare(id: bigint | number) {
-    return this.shares[String(id)];
+    return this.shares[key];
   }
   split(n: number, k: number) {
-    for (let [pId, v] of sss.share(this.secret, n, k)) {
-      this.setShare(pId, v);
+    for (let [idx, v] of sss.share(this.value, n, k)) {
+      let s = new Share(this.name, Number(idx), v);
+      this.setShare(s);
     }
     return this.shares;
   }
-  reconstruct() {
+  reconstruct(): bigint {
     const points: Point[] = [];
-    for (let id in this.shares) {
-      points.push([BigInt(id), this.shares[id]]);
+    for (let idx in this.shares) {
+      points.push([BigInt(idx), this.shares[idx].value]);
     }
-    this.secret = sss.reconstruct(points);
-    return this.secret;
+    this.value = sss.reconstruct(points);
+    return this.value;
+  }
+}
+
+class Share {
+  name: string;
+  index: number;
+  value: bigint;
+  constructor(name: string, idx: number, value?: bigint) {
+    this.name = name;
+    this.index = idx;
+    if (value) {
+      this.value = value;
+    }
   }
 }
 
@@ -46,27 +62,27 @@ class Party {
     // TODO: set mutex to avoid conflicts
     return this.session.register(this.id);
   }
-  async sendShare(pId: number, v: Variable, shareId?: number) {
-    if (!shareId) shareId = pId;
-    console.debug(`party.sendShare: from=${this.id} to=${pId} name=${v.name} value=${v.getShare(shareId)}, shareID:${shareId}`);
-    const key = this._shareKey(v.name, shareId);
-    return this.session.send(pId, key, String(v.getShare(shareId)));
+  async sendShare(s: Share, peerId: number) {
+    console.log(
+      `sendShare: from=${this.id} to=${peerId} name=${s.name} ` +
+      `value=${s.value}, shareIndex:${s.index}`);
+    const key = this._shareKey(s);
+    return this.session.send(peerId, key, String(s.value));
   }
-  async receiveShare(v: Variable, shareId?: number): Promise<boolean> {
-    if (!shareId) shareId = this.id;
-    const key = this._shareKey(v.name, shareId);
+  async receiveShare(s: Share): Promise<boolean> {
+    const key = this._shareKey(s);
     return this.session.recieve(this.id, key).then((value: string) => {
       if (!value) throw "no data recieved";
-      v.setShare(shareId, BigInt(value));
       console.debug(`party.recieveShare: party=${this.id}, key=${key}, val=${value}`);
+      s.value = BigInt(value);
       return true;
     }).catch((e) => {
       console.error(e);
       return false;
     });
   }
-  _shareKey(name: string, id: number): string {
-    return `vars/${name}/shares/${id}`;
+  _shareKey(s: Share): string {
+    return `vars/${s.name}/shares/${s.index}`;
   }
 }
 
@@ -158,41 +174,40 @@ class MPC {
     this.p = p;
     this.conf = conf;
   }
-  split(v: Variable) {
-    return v.split(this.conf.n, this.conf.k);
+  split(s: Secret) {
+    return s.split(this.conf.n, this.conf.k);
   }
-  async add(c: Variable, a: Variable, b: Variable) {
+  async add(c: Share, a: Share, b: Share) {
     // TODO: await in parallel
     await this.p.receiveShare(a);
     await this.p.receiveShare(b);
-    let cValue = a.getShare(this.p.id) + b.getShare(this.p.id);
-    return c.setShare(this.p.id, cValue);
+    c.value = a.value + b.value;
+    return c;
   }
-  async mul(c: Variable, a: Variable, b: Variable) {
+  async mul(c: Share, a: Share, b: Share) {
     // TODO: await in parallel
     await this.p.receiveShare(a);
     await this.p.receiveShare(b);
 
-    const abLocalVal = a.getShare(this.p.id) * b.getShare(this.p.id);
-    const abLocal = new Variable(`${a.name}${b.name}#${this.p.id}`, abLocalVal);
-    this.split(abLocal)
 
-    // broadcast shares of `ab` to peers
-    // TODO: await in parallel
-    for (let pId in abLocal.shares) {
-      await this.p.sendShare(Number(pId), abLocal);
+    // calcluate a*b and broadcast shares to peers
+    const ab_i = new Secret(
+      `${a.name}${b.name}#${this.p.id}`, a.value * b.value);
+    for (let [idx, share] of Object.entries(this.split(ab_i))) {
+      await this.p.sendShare(share, Number(idx));
     }
 
     // collect `ab` from peers
     // TODO: await in parallel
-    const ab = new Variable(`${a.name}${b.name}`);
-    for (let i = 1; i <= this.conf.n; i++) {
-      let abRemote = new Variable(`${a.name}${b.name}#${i}`);
-      await this.p.receiveShare(abRemote);
-      ab.setShare(i, abRemote.getShare(this.p.id))
+    const points: Array<Point> = [];
+    for (let j = 1; j <= this.conf.n; j++) {
+      let ab_j = new Share(`${a.name}${b.name}#${j}`, this.p.id);
+      await this.p.receiveShare(ab_j);
+      points.push([BigInt(j), ab_j.value]);
     }
 
-    return c.setShare(this.p.id, ab.reconstruct())
+    c.value = sss.reconstruct(points);
+    return c;
   }
 }
 
@@ -201,4 +216,4 @@ type MPCConfig = {
   k: number,
 }
 
-export { Variable, Party, MPC, MPCConfig, LocalStorageSession };
+export { Secret, Share, Party, MPC, MPCConfig, LocalStorageSession };

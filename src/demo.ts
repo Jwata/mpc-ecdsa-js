@@ -1,16 +1,18 @@
-import { Variable, Party, MPC, LocalStorageSession } from './lib/mpc'
+import { Secret, Share, Party, MPC, LocalStorageSession } from './lib/mpc'
 
 // Expose MPC Lib
 declare global {
   interface Window {
-    Variable: any;
+    Secret: any;
+    Share: any;
     Party: any;
     MPC: any;
     LocalStorageSession: any;
     mpc: MPC;
   }
 }
-window.Variable = Variable;
+window.Secret = Secret;
+window.Share = Share;
 window.Party = Party;
 window.MPC = MPC;
 window.LocalStorageSession = LocalStorageSession;
