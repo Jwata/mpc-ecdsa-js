@@ -1,17 +1,57 @@
-import * as mpclib from './lib/mpc'
+import * as _ from 'lodash';
+import * as _mpclib from './lib/mpc';
 
 // Expose MPC Lib
+type Variale = _mpclib.Secret | _mpclib.Share;
+
 declare global {
   interface Window {
     mpclib: any;
-    mpc: mpclib.MPC;
+    variables: Array<Variale>;
+    mpc: _mpclib.MPC;
     demoDealer: () => void;
     demoAdd: () => void;
     demoMul: () => void;
   }
 }
+
+// MPC variables used in demo
+class Variables extends Array<Variale> implements Array<Variale> {
+  push(...items: Array<Variale>): number {
+    console.log(items);
+    // TODO: proxy setter
+    return super.push(...items);
+  }
+}
+window.variables = new Variables();
+
+// Extend mpc Secret and Share to observe new variables
+class Secret extends _mpclib.Secret {
+  constructor(name: string, secret?: bigint) {
+    super(name, secret);
+    window.variables.push(this);
+  }
+}
+class Share extends _mpclib.Share {
+  constructor(name: string, idx: number, value?: bigint) {
+    super(name, idx, value);
+    window.variables.push(this);
+  }
+}
+
+// override mpc
+const mpclib = {
+  Secret: Secret,
+  Share: Share,
+  Party: _mpclib.Party,
+  LocalStorageSession: _mpclib.LocalStorageSession,
+  MPC: _mpclib.MPC,
+};
+
+
 window.mpclib = mpclib;
 
+// Dealer uses fixed ID in demo
 const DEALER = 999;
 
 // Add APIs for demo
@@ -24,14 +64,14 @@ function initMPC() {
   return new mpclib.MPC(dealer, conf);
 };
 
-async function splitAndSend(mpc: mpclib.MPC, s: mpclib.Secret) {
+async function splitAndSend(mpc: _mpclib.MPC, s: _mpclib.Secret) {
   console.log('demo: Split and send shares', s);
   for (let [idx, share] of Object.entries(mpc.split(s))) {
     await mpc.sendShare(share, Number(idx));
   }
 }
 
-async function recieveResult(mpc: mpclib.MPC, s: mpclib.Secret) {
+async function recieveResult(mpc: _mpclib.MPC, s: _mpclib.Secret) {
   console.log('Recieve shares', s);
   for (let i = 1; i <= mpc.conf.n; i++) {
     await mpc.recieveShare(s.getShare(i));
@@ -39,7 +79,7 @@ async function recieveResult(mpc: mpclib.MPC, s: mpclib.Secret) {
   return s;
 }
 
-function demoDealer(mpc: mpclib.MPC) {
+function demoDealer(mpc: _mpclib.MPC) {
   return async function() {
     // clean localStorage
     mpc.p.session.clear();
@@ -58,7 +98,7 @@ function demoDealer(mpc: mpclib.MPC) {
   }
 }
 
-function demoAdd(mpc: mpclib.MPC) {
+function demoAdd(mpc: _mpclib.MPC) {
   return async function() {
     var a = new mpclib.Share('a', mpc.p.id);
     var b = new mpclib.Share('b', mpc.p.id);
@@ -72,7 +112,7 @@ function demoAdd(mpc: mpclib.MPC) {
   }
 }
 
-function demoMul(mpc: mpclib.MPC) {
+function demoMul(mpc: _mpclib.MPC) {
   return async function() {
     var a = new mpclib.Share('a', mpc.p.id);
     var b = new mpclib.Share('b', mpc.p.id);
@@ -86,10 +126,23 @@ function demoMul(mpc: mpclib.MPC) {
   }
 }
 
+function initUI(mpc: _mpclib.MPC) {
+  _.templateSettings.interpolate = /{{([\s\S]+?)}}/g;
+
+  // Party
+  const party = document.getElementById('party');
+  const id = (mpc.p.id == DEALER) ? 'Dealer' : mpc.p.id;
+  party.innerHTML = _.template(party.innerText)({ id: id });
+
+  // Variables
+}
+
 window.addEventListener('DOMContentLoaded', function() {
   const mpc = initMPC();
   window.mpc = mpc;
   window.demoDealer = demoDealer(mpc);
   window.demoAdd = demoAdd(mpc);
   window.demoMul = demoMul(mpc);
+
+  initUI(mpc);
 });
