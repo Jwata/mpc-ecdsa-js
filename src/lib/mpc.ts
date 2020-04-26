@@ -63,9 +63,7 @@ class Party {
     return this.session.register(this.id);
   }
   async sendShare(s: Share, peerId: number) {
-    console.log(
-      `sendShare: from=${this.id} to=${peerId} name=${s.name} ` +
-      `value=${s.value}, shareIndex:${s.index}`);
+    console.log(`party.sendShare: party=${this.id} peer=${peerId}`, s);
     const key = this._shareKey(s);
     return this.session.send(peerId, key, String(s.value));
   }
@@ -73,8 +71,8 @@ class Party {
     const key = this._shareKey(s);
     return this.session.recieve(this.id, key).then((value: string) => {
       if (!value) throw "no data recieved";
-      console.debug(`party.recieveShare: party=${this.id}, key=${key}, val=${value}`);
       s.value = BigInt(value);
+      console.log(`party.recieveShare: party=${this.id}`, s);
       return true;
     }).catch((e) => {
       console.error(e);
@@ -92,6 +90,7 @@ interface Session {
   getParties: () => Promise<Set<number>>;
   send: (id: number, key: string, value: any) => Promise<void>;
   recieve: (id: number, key: string) => Promise<string>;
+  clear: () => void;
 }
 
 // TODO: implement indexdb + observers to be atomic.
@@ -108,15 +107,20 @@ class LocalStorageSession implements Session {
     this.name = name;
   }
   static init(name: string): LocalStorageSession {
-    this.clearItems();
-    return new this(name);
+    const s = new this(name);
+    return s;
   }
-  static clearItems() {
+  clear() {
+    const keys = [];
     for (let i = 0; i < window.localStorage.length; i++) {
       let key = window.localStorage.key(i);
       if (!key.startsWith(this.name)) continue;
+      keys.push(key);
+    }
+    for (let key of keys) {
       window.localStorage.removeItem(key);
     }
+    console.debug('mpc.cleared:', keys);
   }
   async register(id: number): Promise<Set<number>> {
     // TODO: take mutex to avoid overrides
@@ -176,6 +180,12 @@ class MPC {
   }
   split(s: Secret) {
     return s.split(this.conf.n, this.conf.k);
+  }
+  async sendShare(s: Share, peer: number) {
+    return this.p.sendShare(s, peer);
+  }
+  async recieveShare(s: Share) {
+    return this.p.receiveShare(s);
   }
   async add(c: Share, a: Share, b: Share) {
     // TODO: await in parallel

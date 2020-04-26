@@ -37,5 +37,10 @@ module.exports = {
       template: 'src/demo.html',
       chunks: ['demo'],
     }),
-  ]
-};
+  ],
+  devServer: {
+    contentBase: path.join(__dirname, 'dist'),
+    compress: false,
+    port: 9000
+  }
+}
