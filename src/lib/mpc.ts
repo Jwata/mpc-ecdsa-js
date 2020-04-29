@@ -1,17 +1,31 @@
 import * as sss from './shamir_secret_sharing';
 import { Point } from './polynomial';
 
+// TODO use setter 
+//https://blog.neptune-ubi.com/overwriting-getter-setter-in-typescript/
 class Secret {
   name: string;
-  value: bigint;
+  _value: bigint;
   shares: { [key: string]: Share };
+  onCreate: () => void;
+  onSetValue: () => void;
+  onSetShare: () => void;
   constructor(name: string, secret?: bigint) {
     this.name = name;
     this.shares = {};
     this.value = secret;
+    if (this.onCreate) this.onCreate();
+  }
+  get value() {
+    return this._value;
+  }
+  set value(v: bigint) {
+    this._value = v;
+    if (this.onSetValue) this.onSetValue();
   }
   setShare(s: Share) {
     this.shares[String(s.index)] = s;
+    if (this.onSetShare) this.onSetShare();
   }
   getShare(idx: bigint | number): Share {
     const key = String(idx);
@@ -40,13 +54,23 @@ class Secret {
 class Share {
   name: string;
   index: number;
-  value: bigint;
+  _value: bigint;
+  onCreate: () => void;
+  onSetValue: () => void;
   constructor(name: string, idx: number, value?: bigint) {
     this.name = name;
     this.index = idx;
     if (value) {
       this.value = value;
     }
+    if (this.onCreate) this.onCreate();
+  }
+  get value() {
+    return this._value;
+  }
+  set value(v: bigint) {
+    this._value = v;
+    if (this.onSetValue) this.onSetValue();
   }
 }
 

@@ -1,51 +1,48 @@
 import * as _ from 'lodash';
-import * as _mpclib from './lib/mpc';
+import { MPC, Party, LocalStorageSession, Share, Secret } from './lib/mpc';
 const _css = require('./demo.css');
 
 // Expose MPC Lib
-type Variable = _mpclib.Secret | _mpclib.Share;
+type Variable = Secret | Share;
 
 declare global {
   interface Window {
     mpclib: any;
     variables: Array<Variable>;
-    mpc: _mpclib.MPC;
+    mpc: MPC;
     demoDealer: () => void;
     demoAdd: () => void;
     demoMul: () => void;
   }
 }
 
-// MPC variables used in demo
-class Variables extends Array<Variable> implements Array<Variable> {
-  push(...variables: Array<Variable>): number {
-    // TODO: proxy setter
-    return super.push(...items);
-  }
-}
-window.variables = new Variables();
+window.variables = [];
 
-// Extend mpc Secret and Share to observe new variables
-class Secret extends _mpclib.Secret {
-  constructor(name: string, secret?: bigint) {
-    super(name, secret);
-    window.variables.push(this);
-  }
+Secret.prototype.onCreate = function() {
+  window.variables.push(this);
+  renderVariables();
 }
-class Share extends _mpclib.Share {
-  constructor(name: string, idx: number, value?: bigint) {
-    super(name, idx, value);
-    window.variables.push(this);
-  }
+Secret.prototype.onSetValue = function() {
+  renderVariables();
+}
+Secret.prototype.onSetShare = function() {
+  renderVariables();
+}
+Share.prototype.onCreate = function() {
+  window.variables.push(this);
+  renderVariables();
+}
+Share.prototype.onSetValue = function() {
+  renderVariables();
 }
 
 // override mpc
 const mpclib = {
   Secret: Secret,
   Share: Share,
-  Party: _mpclib.Party,
-  LocalStorageSession: _mpclib.LocalStorageSession,
-  MPC: _mpclib.MPC,
+  Party: Party,
+  LocalStorageSession: LocalStorageSession,
+  MPC: MPC,
 };
 
 
@@ -64,14 +61,14 @@ function initMPC() {
   return new mpclib.MPC(dealer, conf);
 };
 
-async function splitAndSend(mpc: _mpclib.MPC, s: _mpclib.Secret) {
+async function splitAndSend(mpc: MPC, s: Secret) {
   console.log('demo: Split and send shares', s);
   for (let [idx, share] of Object.entries(mpc.split(s))) {
     await mpc.sendShare(share, Number(idx));
   }
 }
 
-async function recieveResult(mpc: _mpclib.MPC, s: _mpclib.Secret) {
+async function recieveResult(mpc: MPC, s: Secret) {
   console.log('Recieve shares', s);
   for (let i = 1; i <= mpc.conf.n; i++) {
     await mpc.recieveShare(s.getShare(i));
@@ -79,7 +76,7 @@ async function recieveResult(mpc: _mpclib.MPC, s: _mpclib.Secret) {
   return s;
 }
 
-function demoDealer(mpc: _mpclib.MPC) {
+function demoDealer(mpc: MPC) {
   return async function() {
     // clean localStorage
     mpc.p.session.clear();
@@ -98,7 +95,7 @@ function demoDealer(mpc: _mpclib.MPC) {
   }
 }
 
-function demoAdd(mpc: _mpclib.MPC) {
+function demoAdd(mpc: MPC) {
   return async function() {
     var a = new mpclib.Share('a', mpc.p.id);
     var b = new mpclib.Share('b', mpc.p.id);
@@ -112,7 +109,7 @@ function demoAdd(mpc: _mpclib.MPC) {
   }
 }
 
-function demoMul(mpc: _mpclib.MPC) {
+function demoMul(mpc: MPC) {
   return async function() {
     var a = new mpclib.Share('a', mpc.p.id);
     var b = new mpclib.Share('b', mpc.p.id);
@@ -126,12 +123,12 @@ function demoMul(mpc: _mpclib.MPC) {
   }
 }
 
-function initUI(mpc: _mpclib.MPC) {
+function initUI(mpc: MPC) {
   renderParty(mpc);
   renderVariables();
 }
 
-function renderParty(mpc: _mpclib.MPC) {
+function renderParty(mpc: MPC) {
   const el = document.getElementById('party');
   const id = (mpc.p.id == DEALER) ? 'Dealer' : mpc.p.id;
   el.innerHTML = _.template(el.innerText)({ id: id });
@@ -140,14 +137,41 @@ function renderParty(mpc: _mpclib.MPC) {
 const variablesHTML = `
 <ul>
   <% _.each(variables, function(variable) { %>
-    <li><pre><%= variable.prettyPrint() %></pre></li>
+    <li><pre><%= prettyPrint(variable) %></pre></li>
   <% }) %>
 </ul>
 `;
 
+
 function renderVariables() {
+  function prettyPrint(v: Variable): string {
+    const dict = {
+      name: v.name,
+      // TODO: convert to hex string
+      value: Number(v.value),
+      shares: {},
+    }
+    const shares: { [key: string]: Number } = {};
+    for (let k in (v as Secret).shares) {
+      shares[k] = Number((v as Secret).shares[k].value);
+    }
+    dict.shares = shares;
+    if (v instanceof Share) {
+      delete dict.shares;
+    }
+    return v.constructor.name + JSON.stringify(dict, null, 2);
+  }
+
+  const vars: { [key: string]: Variable } = {};
+  for (let v of window.variables) {
+    if (v.name in vars) continue;
+    vars[v.name] = v;
+  }
+
   const el = document.getElementById('variables');
-  el.innerHTML = _.template(variablesHTML)({ variables: window.variables });
+  el.innerHTML = _.template(variablesHTML)({
+    variables: Object.values(vars), prettyPrint: prettyPrint
+  });
 }
 
 window.addEventListener('DOMContentLoaded', function() {
