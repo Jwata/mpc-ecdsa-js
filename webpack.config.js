@@ -15,8 +15,22 @@ module.exports = {
         test: /\.tsx?$/,
         loader: 'ts-loader',
         exclude: /node_modules/,
+      },
+      {
+        test: /\.html$/,
+        loader: 'html-loader',
+      },
+      {
+        test: /\.css$/,
+        use: [
+          {
+            loader: 'style-loader',
+            options: { injectType: 'linkTag' }
+          },
+          'file-loader',
+        ]
       }
-    ]
+    ],
   },
   resolve: {
     extensions: ['.ts', '.js'],

@@ -1,13 +1,14 @@
 import * as _ from 'lodash';
 import * as _mpclib from './lib/mpc';
+const _css = require('./demo.css');
 
 // Expose MPC Lib
-type Variale = _mpclib.Secret | _mpclib.Share;
+type Variable = _mpclib.Secret | _mpclib.Share;
 
 declare global {
   interface Window {
     mpclib: any;
-    variables: Array<Variale>;
+    variables: Array<Variable>;
     mpc: _mpclib.MPC;
     demoDealer: () => void;
     demoAdd: () => void;
@@ -16,9 +17,8 @@ declare global {
 }
 
 // MPC variables used in demo
-class Variables extends Array<Variale> implements Array<Variale> {
-  push(...items: Array<Variale>): number {
-    console.log(items);
+class Variables extends Array<Variable> implements Array<Variable> {
+  push(...variables: Array<Variable>): number {
     // TODO: proxy setter
     return super.push(...items);
   }
@@ -127,14 +127,27 @@ function demoMul(mpc: _mpclib.MPC) {
 }
 
 function initUI(mpc: _mpclib.MPC) {
-  _.templateSettings.interpolate = /{{([\s\S]+?)}}/g;
+  renderParty(mpc);
+  renderVariables();
+}
 
-  // Party
-  const party = document.getElementById('party');
+function renderParty(mpc: _mpclib.MPC) {
+  const el = document.getElementById('party');
   const id = (mpc.p.id == DEALER) ? 'Dealer' : mpc.p.id;
-  party.innerHTML = _.template(party.innerText)({ id: id });
+  el.innerHTML = _.template(el.innerText)({ id: id });
+}
 
-  // Variables
+const variablesHTML = `
+<ul>
+  <% _.each(variables, function(variable) { %>
+    <li><pre><%= variable.prettyPrint() %></pre></li>
+  <% }) %>
+</ul>
+`;
+
+function renderVariables() {
+  const el = document.getElementById('variables');
+  el.innerHTML = _.template(variablesHTML)({ variables: window.variables });
 }
 
 window.addEventListener('DOMContentLoaded', function() {
