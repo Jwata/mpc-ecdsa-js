@@ -1,5 +1,7 @@
 import { Point } from './lib/polynomial';
 import * as sss from './lib/shamir_secret_sharing';
+import { getRandomValues } from './lib/secure_random';
+import { P, inv } from './lib/finite_field';
 
 describe('MPC arithmetics', function() {
   it('[a + b] = [a] + [b]', function() {
@@ -14,12 +16,12 @@ describe('MPC arithmetics', function() {
     const results: Point[] = [];
     // calculate [a] + [b] in each party
     for (let i = 1; i <= n; i++) {
-      let a_i = a_shares[i-1][1];
-      let b_i = b_shares[i-1][1];
+      let a_i = a_shares[i - 1][1];
+      let b_i = b_shares[i - 1][1];
       results.push([BigInt(i), a_i + b_i])
     }
 
-    expect(sss.reconstruct(results)).toEqual(a+b)
+    expect(sss.reconstruct(results)).toEqual(a + b)
   });
 
   it('[Na + Mb] = N[a] + M[b]', function() {
@@ -36,12 +38,12 @@ describe('MPC arithmetics', function() {
     const results: Point[] = [];
     // calculate [a] + [b] in each party
     for (let i = 1; i <= n; i++) {
-      let a_i = a_shares[i-1][1];
-      let b_i = b_shares[i-1][1];
-      results.push([BigInt(i), N*a_i + M*b_i])
+      let a_i = a_shares[i - 1][1];
+      let b_i = b_shares[i - 1][1];
+      results.push([BigInt(i), N * a_i + M * b_i])
     }
 
-    expect(sss.reconstruct(results)).toEqual(N*a + M*b)
+    expect(sss.reconstruct(results)).toEqual(N * a + M * b)
   });
 
   // Gennaro-Rabin-Rabin multiplication protocol
@@ -52,7 +54,7 @@ describe('MPC arithmetics', function() {
     const a = 2n;
     const b = 3n;
 
-    const shares: { [party: string]: {[variable: string]: bigint} } = {
+    const shares: { [party: string]: { [variable: string]: bigint } } = {
       'p1': {},
       'p2': {},
       'p3': {},
@@ -92,6 +94,38 @@ describe('MPC arithmetics', function() {
       c_shares.push([x, d_i]);
     }
 
-    expect(sss.reconstruct(c_shares)).toEqual(a*b)
+    expect(sss.reconstruct(c_shares)).toEqual(a * b);
   });
+
+  it('t = r * a, t^-1 * r = r^-1 * a^-1 * r = a^-1', function() {
+    const n = 3;
+    const k = 2;
+    const a = 2n;
+
+    const shares: { [party: string]: { [variable: string]: bigint } } = {
+      'p1': {},
+      'p2': {},
+      'p3': {},
+    };
+
+    // TODO: generate random in finite field
+    const r = BigInt(getRandomValues(1)[0]) % P;
+    const t = r * a % P; // t is known by all perties
+
+    // share r
+    for (let [i, b_i] of sss.share(r, n, k)) {
+      shares[`p${i}`]['r'] = b_i;
+    }
+
+    // each party locally calculate t^-1 * r
+    const a_inv_shares: Point[] = [];
+    for (let i = 1; i <= n; i++) {
+      let t_inv = inv(t);
+      let a_inv_i = t_inv * shares[`p${i}`]['r'];
+      a_inv_shares.push([BigInt(i), a_inv_i]);
+    }
+
+    // reconstructed a_inv * a mod P should be 1
+    expect(a * sss.reconstruct(a_inv_shares) % P).toEqual(1n);
+  })
 });
