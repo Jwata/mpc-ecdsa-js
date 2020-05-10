@@ -1,6 +1,6 @@
 import * as sinon from 'sinon';
 import * as sss from './shamir_secret_sharing';
-import * as G from './finite_field';
+import * as GF from './finite_field';
 import * as secureRandom from './secure_random';
 import { Secret, Share, Public, Party, LocalStorageSession, MPC } from './mpc';
 
@@ -268,7 +268,7 @@ describe('MPC', function() {
         await mpc.recieveShare(r);
 
         const a_inv = new Share('a_inv', p.id);
-        a_inv.value = G.mul(G.inv(t.value), r.value);
+        a_inv.value = GF.mul(GF.inv(t.value), r.value);
 
         mpc.p.sendShare(a_inv, dealer.id);
       });
@@ -280,8 +280,8 @@ describe('MPC', function() {
       const a = new Secret('a', 2n);
       // TODO: generate random in finite field
       const r = new Secret(
-        'r', BigInt(secureRandom.getRandomValues(1)[0]) % G.P);
-      const t = new Public('t', G.mul(a.value, r.value))
+        'r', BigInt(secureRandom.getRandomValues(1)[0]) % GF.P);
+      const t = new Public('t', GF.mul(a.value, r.value))
       const a_inv = new Secret('a_inv');
 
 
@@ -298,7 +298,7 @@ describe('MPC', function() {
         await dealer.receiveShare(a_inv.getShare(pId));
       }
 
-      expect(G.mul(a_inv.reconstruct(), a.value)).toEqual(1n);
+      expect(GF.mul(a_inv.reconstruct(), a.value)).toEqual(1n);
     });
   });
   describe('computes power', function() {

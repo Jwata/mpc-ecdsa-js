@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
 import { MPC, Party, LocalStorageSession, Share, Secret, Variable } from './lib/mpc';
-import { P } from './lib/finite_field';
+import * as GF from './lib/finite_field';
 import * as demoInv from './demos/inv';
 import * as demoAdd from './demos/add';
 import * as demoMul from './demos/mul';
@@ -53,7 +53,7 @@ function initMPC() {
   const dealer = new mpclib.Party(pId, session);
   const n = Number(urlParams.get('n') || 3);
   const k = Number(urlParams.get('k') || 2);
-  const conf = { n: n, k: k, p: P, dealer: DEALER }
+  const conf = { n: n, k: k, p: GF.P, dealer: DEALER }
   return new mpclib.MPC(dealer, conf);
 };
 

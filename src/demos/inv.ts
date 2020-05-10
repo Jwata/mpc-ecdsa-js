@@ -1,5 +1,5 @@
 import * as secureRandom from '../lib/secure_random';
-import * as G from '../lib/finite_field';
+import * as GF from '../lib/finite_field';
 import { MPC, Secret, Share, Public } from '../lib/mpc';
 import { splitAndSend, recieveResult } from './common';
 
@@ -11,8 +11,8 @@ export function dealer(mpc: MPC) {
     const a = new Secret('a', 2n);
     // TODO: generate random in finite field
     const r = new Secret(
-      'r', BigInt(secureRandom.getRandomValues(1)[0]) % G.P);
-    const t = new Public('t', G.mul(a.value, r.value))
+      'r', BigInt(secureRandom.getRandomValues(1)[0]) % GF.P);
+    const t = new Public('t', GF.mul(a.value, r.value))
     const a_inv = new Secret('a_inv');
 
     // broadcast t to all parties
@@ -21,7 +21,7 @@ export function dealer(mpc: MPC) {
     await recieveResult(mpc, a_inv);
 
     console.log('reconstructed', a_inv.reconstruct());
-    console.log(`a_inv * a = ${G.mul(a_inv.value, a.value)}`);
+    console.log(`a_inv * a = ${GF.mul(a_inv.value, a.value)}`);
   }
 }
 
@@ -34,7 +34,7 @@ export function party(mpc: MPC) {
     await mpc.recieveShare(r);
 
     const a_inv = new Share('a_inv', mpc.p.id);
-    a_inv.value = G.mul(G.inv(t.value), r.value);
+    a_inv.value = GF.mul(GF.inv(t.value), r.value);
 
     mpc.p.sendShare(a_inv, mpc.conf.dealer);
   }
