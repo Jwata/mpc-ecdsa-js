@@ -1,5 +1,4 @@
 import * as GF from './finite_field';
-import { getRandomValues } from './secure_random';
 
 function inGFP(x: bigint) {
   return (x >= 0 && x < GF.P)
@@ -39,7 +38,7 @@ describe('mul', function() {
 });
 
 describe('inv', function() {
-  const r = BigInt(getRandomValues(1)[0]);
+  const r = GF.rand();
   for (let x of [1n, GF.P - 1n, r]) {
     it(`invserses ${x} in GF(P)`, function() {
       let xInv = GF.inv(x);

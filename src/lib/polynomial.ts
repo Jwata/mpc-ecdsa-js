@@ -3,7 +3,6 @@
  */
 import * as _ from 'lodash';
 
-import { getRandomValues } from './secure_random';
 import * as GF from './finite_field';
 
 interface Polynomial {
@@ -30,9 +29,8 @@ class NormalPolynomial implements Polynomial {
 function getRandomPolynomial(degree: number, y0: bigint): NormalPolynomial {
   let poly = new NormalPolynomial(degree);
   poly.coefficients[0] = y0;
-  const randomValues = getRandomValues(degree);
   for (let i = 1; i <= degree; i++) {
-    poly.coefficients[i] = BigInt(randomValues[i-1]);
+    poly.coefficients[i] =GF.rand();
   }
   return poly;
 };

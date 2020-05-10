@@ -1,4 +1,3 @@
-import * as secureRandom from '../lib/secure_random';
 import * as GF from '../lib/finite_field';
 import { MPC, Secret, Share, Public } from '../lib/mpc';
 import { splitAndSend, recieveResult } from './common';
@@ -9,9 +8,7 @@ export function dealer(mpc: MPC) {
     mpc.p.session.clear();
 
     const a = new Secret('a', 2n);
-    // TODO: generate random in finite field
-    const r = new Secret(
-      'r', BigInt(secureRandom.getRandomValues(1)[0]) % GF.P);
+    const r = new Secret('r', GF.rand());
     const t = new Public('t', GF.mul(a.value, r.value))
     const a_inv = new Secret('a_inv');
 

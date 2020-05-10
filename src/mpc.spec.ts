@@ -1,6 +1,5 @@
 import { Point } from './lib/polynomial';
 import * as sss from './lib/shamir_secret_sharing';
-import * as secureRandom from './lib/secure_random';
 import * as GF from './lib/finite_field';
 
 describe('MPC arithmetics', function() {
@@ -108,8 +107,7 @@ describe('MPC arithmetics', function() {
       'p3': {},
     };
 
-    // TODO: generate random in finite field
-    const r = BigInt(secureRandom.getRandomValues(1)[0]) % GF.P;
+    const r = GF.rand();
     const t = GF.mul(r, a); // t is known by all perties
 
     // share r

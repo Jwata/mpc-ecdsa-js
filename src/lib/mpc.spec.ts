@@ -1,7 +1,6 @@
 import * as sinon from 'sinon';
 import * as sss from './shamir_secret_sharing';
 import * as GF from './finite_field';
-import * as secureRandom from './secure_random';
 import { Secret, Share, Public, Party, LocalStorageSession, MPC } from './mpc';
 
 // TODO: move to setup and recover teardown
@@ -278,9 +277,7 @@ describe('MPC', function() {
     await background(async () => {
       const mpc = new MPC(dealer, conf);
       const a = new Secret('a', 2n);
-      // TODO: generate random in finite field
-      const r = new Secret(
-        'r', BigInt(secureRandom.getRandomValues(1)[0]) % GF.P);
+      const r = new Secret('r', GF.rand());
       const t = new Public('t', GF.mul(a.value, r.value))
       const a_inv = new Secret('a_inv');
 
