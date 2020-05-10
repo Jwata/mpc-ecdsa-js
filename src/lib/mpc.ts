@@ -233,22 +233,23 @@ class MPC {
   async recievePublic(p: Public) {
     return this.p.receivePublic(p);
   }
-  async add(c: Share, a: Share, b: Share) {
+  // calculate a + b and assign the result to d
+  async add(d: Share, a: Share, b: Share) {
     // TODO: await in parallel
     await this.p.receiveShare(a);
     await this.p.receiveShare(b);
-    c.value = a.value + b.value;
-    return c;
+    d.value = a.value + b.value;
+    return d;
   }
-  async mul(c: Share, a: Share, b: Share) {
+  // calculate a * b and assign the result to d
+  async mul(d: Share, a: Share, b: Share) {
     // TODO: await in parallel
-    await this.p.receiveShare(a);
-    await this.p.receiveShare(b);
-
+    if (!a.value) await this.p.receiveShare(a);
+    if (!b.value) await this.p.receiveShare(b);
 
     // calcluate a*b and broadcast shares to peers
     const ab_i = new Secret(
-      `${a.name}${b.name}#${this.p.id}`, a.value * b.value);
+      `${d.name}#${this.p.id}`, a.value * b.value);
     for (let [idx, share] of Object.entries(this.split(ab_i))) {
       await this.p.sendShare(share, Number(idx));
     }
@@ -257,13 +258,33 @@ class MPC {
     // TODO: await in parallel
     const points: Array<Point> = [];
     for (let j = 1; j <= this.conf.n; j++) {
-      let ab_j = new Share(`${a.name}${b.name}#${j}`, this.p.id);
+      let ab_j = new Share(`${d.name}#${j}`, this.p.id);
       await this.p.receiveShare(ab_j);
       points.push([BigInt(j), ab_j.value]);
     }
 
-    c.value = sss.reconstruct(points);
-    return c;
+    d.value = sss.reconstruct(points);
+    return d;
+  }
+  // calculate a^k and assign the result to d
+  async pow(d: Share, a: Share, k: number): Promise<Share> {
+    d.value = 1n;
+    await this.p.receiveShare(a);
+    return this._pow(d, a.name, new Share(`${a.name}^1`, this.p.id, a.value), 1, k);
+  }
+  async _pow(d: Share, name: String, a: Share, i: number, k: number): Promise<Share> {
+    if (k == 1) {
+      return d;
+    }
+    if (k % 2 == 0) {
+      const a2 = new Share(`${name}^${i * 2}`, this.p.id);
+      await this.mul(a2, a, a);
+      if (k / 2 == 1) d.value *= a2.value;
+      return this._pow(d, name, a2, i * 2, k / 2);
+    } else {
+      await this.mul(d, d, a);
+      return this._pow(d, name, a, i, k - 1);
+    }
   }
 }
 

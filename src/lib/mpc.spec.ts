@@ -301,4 +301,55 @@ describe('MPC', function() {
       expect(G.mul(a_inv.reconstruct(), a.value)).toEqual(1n);
     });
   });
+  describe('computes power', function() {
+    for (let params of [
+      { x: 3n, k: 8, z: 6561n },
+      { x: 3n, k: 15, z: 14348907n },
+    ]) {
+      it(`${params.x}^${params.k} = ${params.z}`, async function() {
+        const session = LocalStorageSession.init('test_power');
+        const p1 = new Party(1, session);
+        const p2 = new Party(2, session);
+        const p3 = new Party(3, session);
+        const dealer = new Party(999, session);
+        const conf = { n: 3, k: 2 }
+
+        // All participants connect to the network
+        p1.connect();
+        p2.connect();
+        p3.connect();
+        dealer.connect();
+
+        // Each party does calculation
+        for (let p of [p1, p2, p3]) {
+          background(async () => {
+            const mpc = new MPC(p, conf);
+            const x = new Share('x', p.id);
+            const z = new Share('x^k', p.id);
+            await mpc.pow(z, x, params.k);
+            mpc.p.sendShare(z, dealer.id);
+          });
+        }
+
+        // Dealer sends shares and recieves the computed shares from each party
+        await background(async () => {
+          const mpc = new MPC(dealer, conf);
+          const x = new Secret('x', params.x);
+          const z = new Secret('x^k');
+
+          // broadcast shares of 'a'
+          for (let [idx, share] of Object.entries(mpc.split(x))) {
+            await dealer.sendShare(share, Number(idx));
+          }
+
+          // recieve result shares from parties
+          for (let pId of [1, 2, 3]) {
+            await dealer.receiveShare(z.getShare(pId));
+          }
+
+          expect(z.reconstruct()).toEqual(params.z);
+        });
+      })
+    }
+  });
 });
