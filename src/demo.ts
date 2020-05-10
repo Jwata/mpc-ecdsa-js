@@ -14,6 +14,7 @@ declare global {
     variables: Array<Variable>;
     mpc: MPC;
     demos: { [key: string]: { [key: string]: Function } };
+    GF: any;
   }
 }
 
@@ -42,6 +43,8 @@ const mpclib = {
 
 window.mpclib = mpclib;
 
+window.GF = GF;
+
 // Dealer uses fixed ID in demo
 const DEALER = 999;
 
@@ -67,15 +70,16 @@ const settingsTamplate = `
   <li>Party: <%= party %></li>
   <li>N: <%= n %></li>
   <li>K: <%= k %></li>
-  <li>P: <%= p %></li>
+  <li>GF.P: <%= p %></li>
 </ul>
 `;
 
 function renderSettings(mpc: MPC) {
   const id = (mpc.p.id == DEALER) ? 'Dealer' : mpc.p.id;
   const s = document.getElementById('settings');
+  const P = '0x' + mpc.conf.p.toString(16);
   s.innerHTML = _.template(settingsTamplate)(
-    { party: id, n: mpc.conf.n, k: mpc.conf.k, p: mpc.conf.p });
+    { party: id, n: mpc.conf.n, k: mpc.conf.k, p: P });
 }
 
 const variablesTemplate = `
@@ -91,12 +95,13 @@ function renderVariables() {
     const dict = {
       name: v.name,
       // TODO: convert to hex string
-      value: Number(v.value),
+      value: v.toHex(),
       shares: {},
     }
-    const shares: { [key: string]: Number } = {};
+    const shares: { [key: string]: string } = {};
     for (let k in (v as Secret).shares) {
-      shares[k] = Number((v as Secret).shares[k].value);
+      const s = (v as Secret).shares[k];
+      shares[k] = (s) ? s.toHex() : '';
     }
     dict.shares = shares;
     if (v instanceof Share) {

@@ -18,6 +18,9 @@ class Variable {
     this._value = v;
     if (this.onSetValue) this.onSetValue();
   }
+  toHex(): string {
+    return (this._value) ? '0x' + this._value.toString(16) : '';
+  }
 }
 
 class Secret extends Variable {
