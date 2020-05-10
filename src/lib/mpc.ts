@@ -1,19 +1,14 @@
 import * as sss from './shamir_secret_sharing';
 import { Point } from './polynomial';
 
-// TODO use setter 
-//https://blog.neptune-ubi.com/overwriting-getter-setter-in-typescript/
-class Secret {
+class Variable {
   name: string;
   _value: bigint;
-  shares: { [key: string]: Share };
   onCreate: () => void;
   onSetValue: () => void;
-  onSetShare: () => void;
   constructor(name: string, secret?: bigint) {
     this.name = name;
-    this.shares = {};
-    this.value = secret;
+    this._value = secret;
     if (this.onCreate) this.onCreate();
   }
   get value() {
@@ -22,6 +17,16 @@ class Secret {
   set value(v: bigint) {
     this._value = v;
     if (this.onSetValue) this.onSetValue();
+  }
+}
+
+class Secret extends Variable {
+  shares: { [key: string]: Share };
+  onSetShare: () => void;
+  constructor(name: string, value?: bigint) {
+    super(name, value);
+    this.shares = {};
+    if (this.onCreate) this.onCreate();
   }
   setShare(idx: bigint | number, value: bigint) {
     const s = new Share(this.name, Number(idx), value);
@@ -51,27 +56,16 @@ class Secret {
   }
 }
 
-class Share {
-  name: string;
+class Share extends Variable {
   index: number;
-  _value: bigint;
-  onCreate: () => void;
-  onSetValue: () => void;
   constructor(name: string, idx: number, value?: bigint) {
-    this.name = name;
+    super(name, value);
     this.index = idx;
-    if (value) {
-      this.value = value;
-    }
     if (this.onCreate) this.onCreate();
   }
-  get value() {
-    return this._value;
-  }
-  set value(v: bigint) {
-    this._value = v;
-    if (this.onSetValue) this.onSetValue();
-  }
+}
+
+class Public extends Variable {
 }
 
 class Party {
@@ -93,10 +87,22 @@ class Party {
   }
   async receiveShare(s: Share): Promise<boolean> {
     const key = this._shareKey(s);
+    return this._receive(s, key);
+  }
+  async sendPublic(p: Public, peerId: number) {
+    console.log(`party.sendPublic: party=${this.id} peer=${peerId}`, p);
+    const key = this._publicKey(p);
+    return this.session.send(peerId, key, String(p.value));
+  }
+  async receivePublic(p: Public): Promise<boolean> {
+    const key = this._publicKey(p);
+    return this._receive(p, key);
+  }
+  async _receive(v: Variable, key: string): Promise<boolean> {
     return this.session.recieve(this.id, key).then((value: string) => {
       if (!value) throw "no data recieved";
-      s.value = BigInt(value);
-      console.log(`party.recieveShare: party=${this.id}`, s);
+      v.value = BigInt(value);
+      console.log(`party.recieve: party=${this.id}`, v);
       return true;
     }).catch((e) => {
       console.error(e);
@@ -105,6 +111,9 @@ class Party {
   }
   _shareKey(s: Share): string {
     return `vars/${s.name}/shares/${s.index}`;
+  }
+  _publicKey(p: Public): string {
+    return `vars/${p.name}`;
   }
 }
 
@@ -205,11 +214,24 @@ class MPC {
   split(s: Secret) {
     return s.split(this.conf.n, this.conf.k);
   }
+  // sends a share to a peer.
   async sendShare(s: Share, peer: number) {
     return this.p.sendShare(s, peer);
   }
+  // recieves a share from a peer.
   async recieveShare(s: Share) {
     return this.p.receiveShare(s);
+  }
+  // broadcast a public variable to all peers.
+  async broadcastPublic(p: Public) {
+    const promisses = [];
+    for (let i = 1; i <= this.conf.n; i++) {
+      promisses.push(this.p.sendPublic(p, i));
+    }
+    return Promise.allSettled(promisses);
+  }
+  async recievePublic(p: Public) {
+    return this.p.receivePublic(p);
   }
   async add(c: Share, a: Share, b: Share) {
     // TODO: await in parallel
@@ -249,6 +271,7 @@ type MPCConfig = {
   n: number,
   k: number,
   p?: bigint,
+  dealer?: number,
 }
 
-export { Secret, Share, Party, MPC, MPCConfig, LocalStorageSession };
+export { Secret, Share, Public, Party, MPC, MPCConfig, LocalStorageSession };

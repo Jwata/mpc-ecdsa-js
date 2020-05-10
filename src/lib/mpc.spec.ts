@@ -1,6 +1,8 @@
 import * as sinon from 'sinon';
 import * as sss from './shamir_secret_sharing';
-import { Secret, Share, Party, LocalStorageSession, MPC } from './mpc';
+import * as G from './finite_field';
+import * as secureRandom from './secure_random';
+import { Secret, Share, Public, Party, LocalStorageSession, MPC } from './mpc';
 
 // TODO: move to setup and recover teardown
 (function emulateStorageEvent() {
@@ -238,6 +240,65 @@ describe('MPC', function() {
       }
 
       expect(c.reconstruct()).toEqual(a.value * b.value);
+    });
+  });
+  it('computes inversion', async function() {
+    const session = LocalStorageSession.init('test_inversion');
+    const p1 = new Party(1, session);
+    const p2 = new Party(2, session);
+    const p3 = new Party(3, session);
+    const dealer = new Party(999, session);
+    const conf = { n: 3, k: 2 }
+
+    // All participants connect to the network
+    p1.connect();
+    p2.connect();
+    p3.connect();
+    dealer.connect();
+
+    // Each party does calculation
+    for (let p of [p1, p2, p3]) {
+      background(async () => {
+        const mpc = new MPC(p, conf);
+
+        const t = new Public('t');
+        await mpc.recievePublic(t);
+
+        const r = new Share('r', p.id);
+        await mpc.recieveShare(r);
+
+        const a_inv = new Share('a_inv', p.id);
+        a_inv.value = G.mul(G.inv(t.value), r.value);
+
+        mpc.p.sendShare(a_inv, dealer.id);
+      });
+    }
+
+    // Dealer
+    await background(async () => {
+      const mpc = new MPC(dealer, conf);
+      const a = new Secret('a', 2n);
+      // TODO: generate random in finite field
+      const r = new Secret(
+        'r', BigInt(secureRandom.getRandomValues(1)[0]) % G.P);
+      const t = new Public('t', G.mul(a.value, r.value))
+      const a_inv = new Secret('a_inv');
+
+
+      // broadcast t to all parties
+      await mpc.broadcastPublic(t);
+
+      // send shares of r to parties
+      for (let [idx, share] of Object.entries(mpc.split(r))) {
+        await dealer.sendShare(share, Number(idx));
+      }
+
+      // recieve result shares from parties
+      for (let pId of [1, 2, 3]) {
+        await dealer.receiveShare(a_inv.getShare(pId));
+      }
+
+      expect(G.mul(a_inv.reconstruct(), a.value)).toEqual(1n);
     });
   });
 });

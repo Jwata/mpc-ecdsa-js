@@ -1,6 +1,9 @@
 import * as _ from 'lodash';
 import { MPC, Party, LocalStorageSession, Share, Secret } from './lib/mpc';
 import { P } from './lib/finite_field';
+import * as demoInv from './demos/inv';
+import * as demoAdd from './demos/add';
+import * as demoMul from './demos/mul';
 const _css = require('./demo.css');
 
 // Expose MPC Lib
@@ -11,9 +14,7 @@ declare global {
     mpclib: any;
     variables: Array<Variable>;
     mpc: MPC;
-    demoDealer: () => void;
-    demoAdd: () => void;
-    demoMul: () => void;
+    demos: { [key: string]: { [key: string]: Function } };
   }
 }
 
@@ -60,71 +61,9 @@ function initMPC() {
   const dealer = new mpclib.Party(pId, session);
   const n = Number(urlParams.get('n') || 3);
   const k = Number(urlParams.get('k') || 2);
-  const conf = { n: n, k: k, p: P }
+  const conf = { n: n, k: k, p: P, dealer: DEALER }
   return new mpclib.MPC(dealer, conf);
 };
-
-async function splitAndSend(mpc: MPC, s: Secret) {
-  console.log('demo: Split and send shares', s);
-  for (let [idx, share] of Object.entries(mpc.split(s))) {
-    await mpc.sendShare(share, Number(idx));
-  }
-}
-
-async function recieveResult(mpc: MPC, s: Secret) {
-  console.log('Recieve shares', s);
-  for (let i = 1; i <= mpc.conf.n; i++) {
-    await mpc.recieveShare(s.getShare(i));
-  }
-  return s;
-}
-
-function demoDealer(mpc: MPC) {
-  return async function() {
-    // clean localStorage
-    mpc.p.session.clear();
-
-    var a = new mpclib.Secret('a', 2n);
-    console.log(a);
-    var b = new mpclib.Secret('b', 3n);
-    console.log(b);
-    var c = new mpclib.Secret('c');
-    console.log(c);
-
-    await splitAndSend(mpc, a);
-    await splitAndSend(mpc, b);
-    await recieveResult(mpc, c);
-    console.log(c.reconstruct());
-  }
-}
-
-function demoAdd(mpc: MPC) {
-  return async function() {
-    var a = new mpclib.Share('a', mpc.p.id);
-    var b = new mpclib.Share('b', mpc.p.id);
-    var c = new mpclib.Share('c', mpc.p.id);
-
-    // calculate addition
-    await mpc.add(c, a, b);
-
-    // send result to dealer
-    await mpc.sendShare(c, DEALER);
-  }
-}
-
-function demoMul(mpc: MPC) {
-  return async function() {
-    var a = new mpclib.Share('a', mpc.p.id);
-    var b = new mpclib.Share('b', mpc.p.id);
-    var c = new mpclib.Share('c', mpc.p.id);
-
-    // calculate addition
-    await mpc.mul(c, a, b);
-
-    // send result to dealer
-    await mpc.sendShare(c, DEALER);
-  }
-}
 
 function initUI(mpc: MPC) {
   renderSettings(mpc);
@@ -191,9 +130,20 @@ function renderVariables() {
 window.addEventListener('DOMContentLoaded', function() {
   const mpc = initMPC();
   window.mpc = mpc;
-  window.demoDealer = demoDealer(mpc);
-  window.demoAdd = demoAdd(mpc);
-  window.demoMul = demoMul(mpc);
+  window.demos = {
+    add: {
+      dealer: demoAdd.dealer(mpc),
+      party: demoAdd.party(mpc),
+    },
+    mul: {
+      dealer: demoMul.dealer(mpc),
+      party: demoMul.party(mpc),
+    },
+    inv: {
+      dealer: demoInv.dealer(mpc),
+      party: demoInv.party(mpc),
+    }
+  }
 
   initUI(mpc);
 });
