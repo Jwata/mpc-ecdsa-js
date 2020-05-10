@@ -4,6 +4,7 @@ import { P } from './lib/finite_field';
 import * as demoInv from './demos/inv';
 import * as demoAdd from './demos/add';
 import * as demoMul from './demos/mul';
+import * as demoPow from './demos/pow';
 import './demo.css';
 
 
@@ -133,7 +134,11 @@ window.addEventListener('DOMContentLoaded', function() {
     inv: {
       dealer: demoInv.dealer(mpc),
       party: demoInv.party(mpc),
-    }
+    },
+    pow: {
+      dealer: demoPow.dealer(mpc),
+      party: demoPow.party(mpc),
+    },
   }
 
   initUI(mpc);
