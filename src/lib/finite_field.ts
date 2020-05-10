@@ -1,4 +1,9 @@
 /**
+ * finite_field module implements operations on prime field
+ */
+import * as secureRandom from './secure_random';
+
+/**
  * 256 bit prime number
  *   P = 2^256 - 2^32 - 2^9 − 2^8 − 2^7 − 2^6 − 2^4 − 2^0
  *     = ffffffff ffffffff ffffffff ffffffff ffffffff ffffffff fffffffe fffffc2f
@@ -28,4 +33,9 @@ function egcd(a: bigint, b: bigint): [bigint, bigint, bigint] {
   if (a == 0n) return [b, 0n, 1n];
   let c = egcd(b % a, a);
   return [c[0], c[2] - (b / a) * c[1], c[1]];
+}
+
+// generates random number in finite field
+export function rand(): bigint {
+  return secureRandom.random256() % P;
 }

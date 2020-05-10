@@ -1,25 +1,20 @@
-import {
-  P,
-  add,
-  mul,
-  inv,
-} from './finite_field';
+import * as GF from './finite_field';
 import { getRandomValues } from './secure_random';
 
 function inGFP(x: bigint) {
-  return (x >= 0 && x < P)
+  return (x >= 0 && x < GF.P)
 }
 
 describe('add', function() {
-  let x:bigint, y:bigint, z:bigint;
+  let x: bigint, y: bigint, z: bigint;
   for ([x, y, z] of [
     [1n, 2n, 3n],
-    [P-1n, 1n, 0n],
-    [1n, P-1n, 0n],
-    [P+1n, P+1n, 2n],
+    [GF.P - 1n, 1n, 0n],
+    [1n, GF.P - 1n, 0n],
+    [GF.P + 1n, GF.P + 1n, 2n],
   ]) {
     it(`${x} + ${y} = ${z} in GF(P)`, function() {
-      let xy = add(x, y);
+      let xy = GF.add(x, y);
       expect(inGFP(xy)).toBeTrue()
       expect(xy).toEqual(z)
     });
@@ -27,16 +22,16 @@ describe('add', function() {
 });
 
 describe('mul', function() {
-  let x:bigint, y:bigint, z:bigint;
+  let x: bigint, y: bigint, z: bigint;
   for ([x, y, z] of [
     [1n, 2n, 2n],
-    [P-2n, 1n, P-2n],
-    [P-2n, 3n, P-6n],
-    [2n, P-3n, P-6n],
-    [P-2n, P-3n, 6n],
+    [GF.P - 2n, 1n, GF.P - 2n],
+    [GF.P - 2n, 3n, GF.P - 6n],
+    [2n, GF.P - 3n, GF.P - 6n],
+    [GF.P - 2n, GF.P - 3n, 6n],
   ]) {
     it(`${x} * ${y} = ${z} in GF(P)`, function() {
-      let xy = mul(x, y);
+      let xy = GF.mul(x, y);
       expect(inGFP(xy)).toBeTrue();
       expect(xy).toEqual(z);
     });
@@ -45,11 +40,19 @@ describe('mul', function() {
 
 describe('inv', function() {
   const r = BigInt(getRandomValues(1)[0]);
-  for (let x of [1n, P-1n, r]) {
+  for (let x of [1n, GF.P - 1n, r]) {
     it(`invserses ${x} in GF(P)`, function() {
-      let xInv = inv(x);
+      let xInv = GF.inv(x);
       expect(inGFP(xInv)).toBeTrue();
-      expect(mul(x, xInv)).toEqual(1n)
+      expect(GF.mul(x, xInv)).toEqual(1n)
     });
   }
+});
+
+describe('rand', function() {
+  it('generates random number in finite field', function() {
+    const r = GF.rand();
+    expect(inGFP(r)).toBeTrue();
+    expect(r.toString(2).length).toBeGreaterThan(256 - 32);
+  });
 });
