@@ -6,16 +6,16 @@ class Variable {
   _value: bigint;
   onCreate: () => void;
   onSetValue: () => void;
-  constructor(name: string, secret?: bigint) {
+  constructor(name: string, value?: bigint | string) {
     this.name = name;
-    this._value = secret;
+    if (value) this._value = BigInt(value);
     if (this.onCreate) this.onCreate();
   }
   get value() {
     return this._value;
   }
   set value(v: bigint) {
-    this._value = v;
+    this._value = BigInt(v);
     if (this.onSetValue) this.onSetValue();
   }
   toHex(): string {
@@ -26,7 +26,7 @@ class Variable {
 class Secret extends Variable {
   shares: { [key: string]: Share };
   onSetShare: () => void;
-  constructor(name: string, value?: bigint) {
+  constructor(name: string, value?: bigint | string) {
     super(name, value);
     this.shares = {};
     if (this.onCreate) this.onCreate();
@@ -61,7 +61,7 @@ class Secret extends Variable {
 
 class Share extends Variable {
   index: number;
-  constructor(name: string, idx: number, value?: bigint) {
+  constructor(name: string, idx: number, value?: bigint | string) {
     super(name, value);
     this.index = idx;
     if (this.onCreate) this.onCreate();
@@ -86,7 +86,7 @@ class Party {
   async sendShare(s: Share, peerId: number) {
     console.log(`party.sendShare: party=${this.id} peer=${peerId}`, s);
     const key = this._shareKey(s);
-    return this.session.send(peerId, key, String(s.value));
+    return this.session.send(peerId, key, s.toHex());
   }
   async receiveShare(s: Share): Promise<boolean> {
     const key = this._shareKey(s);
@@ -95,7 +95,7 @@ class Party {
   async sendPublic(p: Public, peerId: number) {
     console.log(`party.sendPublic: party=${this.id} peer=${peerId}`, p);
     const key = this._publicKey(p);
-    return this.session.send(peerId, key, String(p.value));
+    return this.session.send(peerId, key, p.toHex());
   }
   async receivePublic(p: Public): Promise<boolean> {
     const key = this._publicKey(p);
