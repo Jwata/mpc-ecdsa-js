@@ -5,6 +5,9 @@ import { splitAndSend, recieveResult } from './common';
 
 export function dealer(mpc: MPC) {
   return async function() {
+    // clean localStorage
+    mpc.p.session.clear();
+
     const a = new Secret('a', 2n);
     // TODO: generate random in finite field
     const r = new Secret(

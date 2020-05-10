@@ -1,13 +1,11 @@
 import * as _ from 'lodash';
-import { MPC, Party, LocalStorageSession, Share, Secret } from './lib/mpc';
+import { MPC, Party, LocalStorageSession, Share, Secret, Variable } from './lib/mpc';
 import { P } from './lib/finite_field';
 import * as demoInv from './demos/inv';
 import * as demoAdd from './demos/add';
 import * as demoMul from './demos/mul';
-const _css = require('./demo.css');
+import './demo.css';
 
-// Expose MPC Lib
-type Variable = Secret | Share;
 
 declare global {
   interface Window {
@@ -20,21 +18,14 @@ declare global {
 
 window.variables = [];
 
-Secret.prototype.onCreate = function() {
+Variable.prototype.onCreate = function() {
   window.variables.push(this);
   renderVariables();
 }
-Secret.prototype.onSetValue = function() {
+Variable.prototype.onSetValue = function() {
   renderVariables();
 }
 Secret.prototype.onSetShare = function() {
-  renderVariables();
-}
-Share.prototype.onCreate = function() {
-  window.variables.push(this);
-  renderVariables();
-}
-Share.prototype.onSetValue = function() {
   renderVariables();
 }
 

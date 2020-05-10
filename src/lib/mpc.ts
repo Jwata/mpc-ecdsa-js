@@ -274,4 +274,4 @@ type MPCConfig = {
   dealer?: number,
 }
 
-export { Secret, Share, Public, Party, MPC, MPCConfig, LocalStorageSession };
+export { Secret, Share, Public, Party, Variable, MPC, MPCConfig, LocalStorageSession };
