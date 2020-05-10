@@ -10,7 +10,7 @@ export function party(mpc: MPC) {
     var c = new Share('c', mpc.p.id);
 
     // calculate addition
-    await mpc.add(c, a, b);
+    await mpc.mul(c, a, b);
 
     // send result to dealer
     await mpc.sendShare(c, mpc.conf.dealer);

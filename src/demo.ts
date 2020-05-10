@@ -11,17 +11,22 @@ import './demo.css';
 declare global {
   interface Window {
     mpclib: any;
-    variables: Array<Variable>;
+    MPCVars: { [key: string]: Variable };
     mpc: MPC;
     demos: { [key: string]: { [key: string]: Function } };
     GF: any;
   }
 }
 
-window.variables = [];
+window.MPCVars = {};
 
 Variable.prototype.onCreate = function() {
-  window.variables.push(this);
+  const oldVar = window.MPCVars[this.name];
+  if (!oldVar
+    || this instanceof Secret
+    || !(this instanceof Secret) && !(oldVar instanceof Secret)) {
+    window.MPCVars[this.name] = this;
+  }
   renderVariables();
 }
 Variable.prototype.onSetValue = function() {
@@ -110,17 +115,9 @@ function renderVariables() {
     return v.constructor.name + JSON.stringify(dict, null, 2);
   }
 
-  const vars: { [key: string]: Variable } = {};
-  for (let v of window.variables) {
-    if (v.name in vars &&
-      v instanceof Share &&
-      vars[v.name] instanceof Secret) continue;
-    vars[v.name] = v;
-  }
-
   const el = document.getElementById('variables');
   el.innerHTML = _.template(variablesTemplate)({
-    variables: Object.values(vars), prettyPrint: prettyPrint
+    variables: Object.values(window.MPCVars), prettyPrint: prettyPrint
   });
 }
 
