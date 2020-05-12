@@ -397,4 +397,75 @@ describe('MPC', function() {
       });
     });
   });
+  describe('comtined arithmetics', function() {
+    it('Given x, y, Caculates l = 3x^2 + a / 2y', async function() {
+      const session = LocalStorageSession.init('test_ec_add');
+      const p1 = new Party(1, session);
+      const p2 = new Party(2, session);
+      const p3 = new Party(3, session);
+      const dealer = new Party(999, session);
+      const conf = { n: 3, k: 2 }
+
+      const a = 2n;
+
+      // All participants connect to the network
+      p1.connect();
+      p2.connect();
+      p3.connect();
+      dealer.connect();
+
+      // Each party does calculation
+      for (let p of [p1, p2, p3]) {
+        background(async () => {
+          const mpc = new MPC(p, conf);
+          const x = new Share('x', p.id);
+          const y = new Share('y', p.id);
+
+          await p.receiveShare(x);
+          await p.receiveShare(y);
+
+          const x_squared = new Share('x^2', p.id);
+          await mpc.mul(x_squared, x, x);
+
+          const nume = new Share('3x^2', p.id, x_squared.value * 3n + a);
+
+          const denom = new Share('2y^-1', p.id);
+          await mpc.inv(denom, new Share('2y', p.id, y.value * 2n));
+
+          const l = new Share('lambda', p.id);
+
+          await mpc.mul(l, nume, denom);
+
+          mpc.p.sendShare(l, dealer.id);
+        });
+      }
+
+      // Dealer sends shares and recieves the computed shares from each party
+      await background(async () => {
+        const mpc = new MPC(dealer, conf);
+        const x = new Secret('x', 1n);
+        const y = new Secret('y', 2n);
+
+        // broadcast shares of 'x', 'y'
+        for (let [idx, share] of Object.entries(mpc.split(x))) {
+          await dealer.sendShare(share, Number(idx));
+        }
+        for (let [idx, share] of Object.entries(mpc.split(y))) {
+          await dealer.sendShare(share, Number(idx));
+        }
+
+        // recieve result shares from parties
+        const l = new Secret('lambda');
+        for (let pId of [1, 2, 3]) {
+          await dealer.receiveShare(l.getShare(pId));
+        }
+        l.reconstruct();
+
+        // confirm that l * 2y = 3x^2  + a is on the koblitz curve
+        const equition = GF.mul(l.value, y.value * 2n)
+          == GF.add(GF.mul(GF.mul(x.value, x.value), 3n), a);
+        expect(equition).toBeTrue();
+      });
+    })
+  });
 });
