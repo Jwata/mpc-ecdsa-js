@@ -141,6 +141,19 @@ describe('Party', function() {
 });
 
 describe('MPC', function() {
+  function expectToBeReconstructable(s: Secret, expected?: bigint) {
+    const s1 = s.getShare(1).value;
+    const s2 = s.getShare(2).value;
+    const s3 = s.getShare(3).value;
+    if (expected) {
+      expect(s.reconstruct()).toEqual(expected);
+    } else {
+      expected = s.reconstruct();
+    }
+    expect(sss.reconstruct([[1n, s1], [2n, s2]])).toEqual(expected);
+    expect(sss.reconstruct([[1n, s1], [3n, s3]])).toEqual(expected);
+    expect(sss.reconstruct([[2n, s2], [3n, s3]])).toEqual(expected);
+  }
   it('computes addition', async function() {
     const session = LocalStorageSession.init('test_addition');
     const p1 = new Party(1, session);
@@ -187,7 +200,7 @@ describe('MPC', function() {
       for (let pId of [1, 2, 3]) {
         await dealer.receiveShare(c.getShare(pId));
       }
-      expect(c.reconstruct()).toEqual(a.value + b.value);
+      expectToBeReconstructable(c, a.value + b.value);
     });
   });
 
@@ -238,7 +251,7 @@ describe('MPC', function() {
         await dealer.receiveShare(c.getShare(pId));
       }
 
-      expect(c.reconstruct()).toEqual(a.value * b.value);
+      expectToBeReconstructable(c, a.value * b.value);
     });
   });
   it('computes inversion', async function() {
@@ -296,6 +309,7 @@ describe('MPC', function() {
       }
 
       expect(GF.mul(a_inv.reconstruct(), a.value)).toEqual(1n);
+      expectToBeReconstructable(a_inv, a_inv.value);
     });
   });
   describe('computes power', function() {
@@ -344,9 +358,51 @@ describe('MPC', function() {
             await dealer.receiveShare(z.getShare(pId));
           }
 
+          // TODO: fail to reconstruct from k shares.
+          // expectToBeReconstructable(z, params.z);
           expect(z.reconstruct()).toEqual(params.z);
         });
       })
     }
+  });
+  describe('rand', function() {
+    it('generates random shares in a distributed manner', async function() {
+      const session = LocalStorageSession.init('test_rand');
+      const p1 = new Party(1, session);
+      const p2 = new Party(2, session);
+      const p3 = new Party(3, session);
+      const dealer = new Party(999, session);
+      const conf = { n: 3, k: 2 }
+
+      // All participants connect to the network
+      p1.connect();
+      p2.connect();
+      p3.connect();
+      dealer.connect();
+
+      // Party
+      for (let p of [p1, p2, p3]) {
+        background(async () => {
+          const mpc = new MPC(p, conf);
+
+          const r = new Share('r', p.id);
+          await mpc.rand(r);
+
+          mpc.p.sendShare(r, dealer.id);
+        });
+      }
+
+      // Dealer
+      await background(async () => {
+        const r = new Secret('r', GF.rand());
+
+        // recieve result shares from parties
+        for (let pId of [1, 2, 3]) {
+          await dealer.receiveShare(r.getShare(pId));
+        }
+
+        expectToBeReconstructable(r);
+      });
+    })
   });
 });

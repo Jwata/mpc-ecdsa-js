@@ -1,3 +1,4 @@
+import * as GF from './finite_field';
 import * as sss from './shamir_secret_sharing';
 import { Point } from './polynomial';
 
@@ -288,6 +289,27 @@ class MPC {
       await this.mul(d, d, a);
       return this._pow(d, name, a, i, k - 1);
     }
+  }
+  // Distributed random secret generation
+  // each party recieves their shares only
+  async rand(d: Share): Promise<Share> {
+    // Each party randomly generate secret locally and sends shares to peers.
+    // Sum of shares at each party is also a share of a secret
+    // due to the linarity.
+    const ri = new Secret(`${d.name}#${this.p.id}`, GF.rand());
+    for (let [idx, share] of Object.entries(this.split(ri))) {
+      await this.p.sendShare(share, Number(idx));
+    }
+
+    const points: Array<Point> = [];
+    for (let j = 1; j <= this.conf.n; j++) {
+      let rj = new Share(`${d.name}#${j}`, this.p.id);
+      await this.p.receiveShare(rj);
+      points.push([BigInt(j), rj.value]);
+    }
+
+    d.value = sss.reconstruct(points);
+    return d;
   }
 }
 

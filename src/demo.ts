@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
-import { MPC, Party, LocalStorageSession, Share, Secret, Variable } from './lib/mpc';
+import * as sss from './lib/shamir_secret_sharing';
 import * as GF from './lib/finite_field';
+import { MPC, Party, LocalStorageSession, Share, Secret, Variable } from './lib/mpc';
 import * as demoInv from './demos/inv';
 import * as demoAdd from './demos/add';
 import * as demoMul from './demos/mul';
@@ -15,6 +16,7 @@ declare global {
     mpc: MPC;
     demos: { [key: string]: { [key: string]: Function } };
     GF: any;
+    sss: any;
   }
 }
 
@@ -49,6 +51,8 @@ const mpclib = {
 window.mpclib = mpclib;
 
 window.GF = GF;
+
+window.sss = sss;
 
 // Dealer uses fixed ID in demo
 const DEALER = 999;
