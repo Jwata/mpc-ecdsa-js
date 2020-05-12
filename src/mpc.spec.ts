@@ -1,6 +1,5 @@
 import { Point } from './lib/polynomial';
 import * as sss from './lib/shamir_secret_sharing';
-import * as GF from './lib/finite_field';
 
 describe('MPC arithmetics', function() {
   it('[a + b] = [a] + [b]', function() {
@@ -95,35 +94,4 @@ describe('MPC arithmetics', function() {
 
     expect(sss.reconstruct(c_shares)).toEqual(a * b);
   });
-
-  it('t = r * a, t^-1 * r = r^-1 * a^-1 * r = a^-1', function() {
-    const n = 3;
-    const k = 2;
-    const a = 2n;
-
-    const shares: { [party: string]: { [variable: string]: bigint } } = {
-      'p1': {},
-      'p2': {},
-      'p3': {},
-    };
-
-    const r = GF.rand();
-    const t = GF.mul(r, a); // t is known by all perties
-
-    // share r
-    for (let [i, b_i] of sss.share(r, n, k)) {
-      shares[`p${i}`]['r'] = b_i;
-    }
-
-    // each party locally calculate t^-1 * r
-    const a_inv_shares: Point[] = [];
-    for (let i = 1; i <= n; i++) {
-      let t_inv = GF.inv(t);
-      let a_inv_i = t_inv * shares[`p${i}`]['r'];
-      a_inv_shares.push([BigInt(i), a_inv_i]);
-    }
-
-    // reconstructed a_inv * a mod P should be 1
-    expect(GF.mul(a, sss.reconstruct(a_inv_shares))).toEqual(1n);
-  })
 });
