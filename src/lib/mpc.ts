@@ -311,6 +311,30 @@ class MPC {
     d.value = sss.reconstruct(points);
     return d;
   }
+  async inv(d: Share, a: Share): Promise<Share> {
+    if (!a.value) await this.p.receiveShare(a);
+
+    // randomly generate value to mask.
+    const r = new Share(`${d.name}#mask`, this.p.id);
+    await this.rand(r);
+
+    const m = new Secret(`${d.name}#masked`);
+    await this.mul(m.getShare(this.p.id), a, r);
+
+    // reveal masked value by exchanging shares.
+    for (let j = 1; j <= this.conf.n; j++) {
+      await this.p.sendShare(m.getShare(this.p.id), Number(j));
+    }
+    for (let j = 1; j <= this.conf.n; j++) {
+      await this.p.receiveShare(m.getShare(j));
+    }
+
+    // reconstruct m and calculate m^-1 locally
+    const m_inv = GF.inv(m.reconstruct());
+
+    d.value = GF.mul(r.value, m_inv);
+    return d;
+  }
 }
 
 type MPCConfig = {

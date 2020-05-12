@@ -8,13 +8,10 @@ export function dealer(mpc: MPC) {
     mpc.p.session.clear();
 
     const a = new Secret('a', 2n);
-    const r = new Secret('r', GF.rand());
-    const t = new Public('t', GF.mul(a.value, r.value))
     const a_inv = new Secret('a_inv');
 
     // broadcast t to all parties
-    await mpc.broadcastPublic(t);
-    await splitAndSend(mpc, r);
+    await splitAndSend(mpc, a);
     await recieveResult(mpc, a_inv);
 
     console.log('reconstructed', a_inv.reconstruct());
@@ -24,14 +21,10 @@ export function dealer(mpc: MPC) {
 
 export function party(mpc: MPC) {
   return async function() {
-    const t = new Public('t');
-    await mpc.recievePublic(t);
-
-    const r = new Share('r', mpc.p.id);
-    await mpc.recieveShare(r);
-
+    const a = new Share('a', mpc.p.id);
     const a_inv = new Share('a_inv', mpc.p.id);
-    a_inv.value = GF.mul(GF.inv(t.value), r.value);
+
+    await mpc.inv(a_inv, a);
 
     mpc.p.sendShare(a_inv, mpc.conf.dealer);
   }

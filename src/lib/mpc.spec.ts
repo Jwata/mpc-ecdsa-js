@@ -1,7 +1,7 @@
 import * as sinon from 'sinon';
 import * as sss from './shamir_secret_sharing';
 import * as GF from './finite_field';
-import { Secret, Share, Public, Party, LocalStorageSession, MPC } from './mpc';
+import { Secret, Share, Party, LocalStorageSession, MPC } from './mpc';
 
 // TODO: move to setup and recover teardown
 (function emulateStorageEvent() {
@@ -254,62 +254,54 @@ describe('MPC', function() {
       expectToBeReconstructable(c, a.value * b.value);
     });
   });
-  it('computes inversion', async function() {
-    const session = LocalStorageSession.init('test_inversion');
-    const p1 = new Party(1, session);
-    const p2 = new Party(2, session);
-    const p3 = new Party(3, session);
-    const dealer = new Party(999, session);
-    const conf = { n: 3, k: 2 }
+  describe('inv', function() {
+    it('calculates inversion without dealer', async function() {
+      const session = LocalStorageSession.init('test_inversion_without_dealer');
+      const p1 = new Party(1, session);
+      const p2 = new Party(2, session);
+      const p3 = new Party(3, session);
+      const dealer = new Party(999, session);
+      const conf = { n: 3, k: 2 }
 
-    // All participants connect to the network
-    p1.connect();
-    p2.connect();
-    p3.connect();
-    dealer.connect();
+      // All participants connect to the network
+      p1.connect();
+      p2.connect();
+      p3.connect();
+      dealer.connect();
 
-    // Each party does calculation
-    for (let p of [p1, p2, p3]) {
-      background(async () => {
-        const mpc = new MPC(p, conf);
+      // Each party does calculation
+      for (let p of [p1, p2, p3]) {
+        background(async () => {
+          const mpc = new MPC(p, conf);
 
-        const t = new Public('t');
-        await mpc.recievePublic(t);
+          const a = new Share('a', p.id);
+          const a_inv = new Share('a_inv', p.id);
 
-        const r = new Share('r', p.id);
-        await mpc.recieveShare(r);
+          await mpc.inv(a_inv, a);
 
-        const a_inv = new Share('a_inv', p.id);
-        a_inv.value = GF.mul(GF.inv(t.value), r.value);
+          mpc.p.sendShare(a_inv, dealer.id);
+        });
+      }
 
-        mpc.p.sendShare(a_inv, dealer.id);
+      // Dealer
+      await background(async () => {
+        const mpc = new MPC(dealer, conf);
+        const a = new Secret('a', 2n);
+        const a_inv = new Secret('a_inv');
+
+        // send shares of a to parties
+        for (let [idx, share] of Object.entries(mpc.split(a))) {
+          await dealer.sendShare(share, Number(idx));
+        }
+
+        // recieve result shares from parties
+        for (let pId of [1, 2, 3]) {
+          await dealer.receiveShare(a_inv.getShare(pId));
+        }
+
+        expect(GF.mul(a_inv.reconstruct(), a.value)).toEqual(1n);
+        expectToBeReconstructable(a_inv, a_inv.value);
       });
-    }
-
-    // Dealer
-    await background(async () => {
-      const mpc = new MPC(dealer, conf);
-      const a = new Secret('a', 2n);
-      const r = new Secret('r', GF.rand());
-      const t = new Public('t', GF.mul(a.value, r.value))
-      const a_inv = new Secret('a_inv');
-
-
-      // broadcast t to all parties
-      await mpc.broadcastPublic(t);
-
-      // send shares of r to parties
-      for (let [idx, share] of Object.entries(mpc.split(r))) {
-        await dealer.sendShare(share, Number(idx));
-      }
-
-      // recieve result shares from parties
-      for (let pId of [1, 2, 3]) {
-        await dealer.receiveShare(a_inv.getShare(pId));
-      }
-
-      expect(GF.mul(a_inv.reconstruct(), a.value)).toEqual(1n);
-      expectToBeReconstructable(a_inv, a_inv.value);
     });
   });
   describe('computes power', function() {
@@ -372,7 +364,7 @@ describe('MPC', function() {
       const p2 = new Party(2, session);
       const p3 = new Party(3, session);
       const dealer = new Party(999, session);
-      const conf = { n: 3, k: 2 }
+      const conf = { n: 3, k: 2 };
 
       // All participants connect to the network
       p1.connect();
@@ -403,6 +395,6 @@ describe('MPC', function() {
 
         expectToBeReconstructable(r);
       });
-    })
+    });
   });
 });
