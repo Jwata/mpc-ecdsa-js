@@ -1,5 +1,6 @@
 {
   "devDependencies": {
+    "@types/elliptic": "^6.4.12",
     "@types/jasmine": "^3.5.10",
     "@types/lodash": "^4.14.149",
     "@types/sinon": "^9.0.0",
@@ -27,5 +28,8 @@
     "build": "node_modules/.bin/webpack --config webpack.config.js",
     "serve": "node_modules/.bin/webpack-dev-server --config webpack.config.js",
     "test": "node_modules/.bin/karma start"
+  },
+  "dependencies": {
+    "elliptic": "^6.5.2"
   }
 }
