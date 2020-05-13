@@ -272,8 +272,13 @@ class MPC {
   }
   // calculate a^k and assign the result to d
   async pow(d: Share, a: Share, k: number): Promise<Share> {
-    d.value = 1n;
     if (!a.value) await this.p.receiveShare(a);
+    // TODO: error if k == 0
+    if (k == 1) {
+      d.value = a.value;
+      return d;
+    }
+    d.value = 1n;
     return this._pow(d, a.name, new Share(`${a.name}^1`, this.p.id, a.value), 1, k);
   }
   async _pow(d: Share, name: String, a: Share, i: number, k: number): Promise<Share> {
@@ -283,7 +288,7 @@ class MPC {
     if (k % 2 == 0) {
       const a2 = new Share(`${name}^${i * 2}`, this.p.id);
       await this.mul(a2, a, a);
-      if (k / 2 == 1) d.value *= a2.value;
+      if (k / 2 == 1) await this.mul(d, d, a2);
       return this._pow(d, name, a2, i * 2, k / 2);
     } else {
       await this.mul(d, d, a);

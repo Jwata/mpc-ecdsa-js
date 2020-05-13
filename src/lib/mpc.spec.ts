@@ -154,104 +154,107 @@ describe('MPC', function() {
     expect(sss.reconstruct([[1n, s1], [3n, s3]])).toEqual(expected);
     expect(sss.reconstruct([[2n, s2], [3n, s3]])).toEqual(expected);
   }
-  it('computes addition', async function() {
-    const session = LocalStorageSession.init('test_addition');
-    const p1 = new Party(1, session);
-    const p2 = new Party(2, session);
-    const p3 = new Party(3, session);
-    const dealer = new Party(999, session);
-    const conf = { n: 3, k: 2 }
+  describe('add', function() {
+    it('computes addition', async function() {
+      const session = LocalStorageSession.init('test_addition');
+      const p1 = new Party(1, session);
+      const p2 = new Party(2, session);
+      const p3 = new Party(3, session);
+      const dealer = new Party(999, session);
+      const conf = { n: 3, k: 2 }
 
-    // All participants connect to the network
-    p1.connect();
-    p2.connect();
-    p3.connect();
-    dealer.connect();
+      // All participants connect to the network
+      p1.connect();
+      p2.connect();
+      p3.connect();
+      dealer.connect();
 
-    // Each party does calculation
-    for (let p of [p1, p2, p3]) {
-      background(async () => {
-        const mpc = new MPC(p, conf);
+      // Each party does calculation
+      for (let p of [p1, p2, p3]) {
+        background(async () => {
+          const mpc = new MPC(p, conf);
 
-        const a = new Share('a', p.id);
-        const b = new Share('b', p.id);
-        const c = new Share('c', p.id);
-        await mpc.add(c, a, b);
-        mpc.p.sendShare(c, dealer.id);
+          const a = new Share('a', p.id);
+          const b = new Share('b', p.id);
+          const c = new Share('c', p.id);
+          await mpc.add(c, a, b);
+          mpc.p.sendShare(c, dealer.id);
+        });
+      }
+
+      // Dealer sends shares and recieves the computed shares from each party
+      await background(async () => {
+        const mpc = new MPC(dealer, conf);
+        const a = new Secret('a', 2n);
+        const b = new Secret('b', 3n);
+        const c = new Secret('c');
+
+        // broadcast shares of 'a' and 'b'
+        for (let [idx, share] of Object.entries(mpc.split(a))) {
+          await dealer.sendShare(share, Number(idx));
+        }
+        for (let [idx, share] of Object.entries(mpc.split(b))) {
+          await dealer.sendShare(share, Number(idx));
+        }
+
+        // recieve result shares from parties
+        for (let pId of [1, 2, 3]) {
+          await dealer.receiveShare(c.getShare(pId));
+        }
+        expectToBeReconstructable(c, a.value + b.value);
       });
-    }
-
-    // Dealer sends shares and recieves the computed shares from each party
-    await background(async () => {
-      const mpc = new MPC(dealer, conf);
-      const a = new Secret('a', 2n);
-      const b = new Secret('b', 3n);
-      const c = new Secret('c');
-
-      // broadcast shares of 'a' and 'b'
-      for (let [idx, share] of Object.entries(mpc.split(a))) {
-        await dealer.sendShare(share, Number(idx));
-      }
-      for (let [idx, share] of Object.entries(mpc.split(b))) {
-        await dealer.sendShare(share, Number(idx));
-      }
-
-      // recieve result shares from parties
-      for (let pId of [1, 2, 3]) {
-        await dealer.receiveShare(c.getShare(pId));
-      }
-      expectToBeReconstructable(c, a.value + b.value);
     });
   });
+  describe('mul', function() {
+    it('computes multiplication', async function() {
+      const session = LocalStorageSession.init('test_multiplication');
+      const p1 = new Party(1, session);
+      const p2 = new Party(2, session);
+      const p3 = new Party(3, session);
+      const dealer = new Party(999, session);
+      const conf = { n: 3, k: 2 }
 
-  it('computes multiplication', async function() {
-    const session = LocalStorageSession.init('test_multiplication');
-    const p1 = new Party(1, session);
-    const p2 = new Party(2, session);
-    const p3 = new Party(3, session);
-    const dealer = new Party(999, session);
-    const conf = { n: 3, k: 2 }
+      // All participants connect to the network
+      p1.connect();
+      p2.connect();
+      p3.connect();
+      dealer.connect();
 
-    // All participants connect to the network
-    p1.connect();
-    p2.connect();
-    p3.connect();
-    dealer.connect();
+      // Each party does calculation
+      for (let p of [p1, p2, p3]) {
+        background(async () => {
+          const mpc = new MPC(p, conf);
 
-    // Each party does calculation
-    for (let p of [p1, p2, p3]) {
-      background(async () => {
-        const mpc = new MPC(p, conf);
+          const a = new Share('a', p.id);
+          const b = new Share('b', p.id);
+          const c = new Share('c', p.id);
+          await mpc.mul(c, a, b);
+          mpc.p.sendShare(c, dealer.id);
+        });
+      }
 
-        const a = new Share('a', p.id);
-        const b = new Share('b', p.id);
-        const c = new Share('c', p.id);
-        await mpc.mul(c, a, b);
-        mpc.p.sendShare(c, dealer.id);
+      // Dealer sends shares and recieves the computed shares from each party
+      await background(async () => {
+        const mpc = new MPC(dealer, conf);
+        const a = new Secret('a', 2n);
+        const b = new Secret('b', 3n);
+        const c = new Secret('c');
+
+        // broadcast shares of 'a' and 'b'
+        for (let [idx, share] of Object.entries(mpc.split(a))) {
+          await dealer.sendShare(share, Number(idx));
+        }
+        for (let [idx, share] of Object.entries(mpc.split(b))) {
+          await dealer.sendShare(share, Number(idx));
+        }
+
+        // recieve result shares from parties
+        for (let pId of [1, 2, 3]) {
+          await dealer.receiveShare(c.getShare(pId));
+        }
+
+        expectToBeReconstructable(c, a.value * b.value);
       });
-    }
-
-    // Dealer sends shares and recieves the computed shares from each party
-    await background(async () => {
-      const mpc = new MPC(dealer, conf);
-      const a = new Secret('a', 2n);
-      const b = new Secret('b', 3n);
-      const c = new Secret('c');
-
-      // broadcast shares of 'a' and 'b'
-      for (let [idx, share] of Object.entries(mpc.split(a))) {
-        await dealer.sendShare(share, Number(idx));
-      }
-      for (let [idx, share] of Object.entries(mpc.split(b))) {
-        await dealer.sendShare(share, Number(idx));
-      }
-
-      // recieve result shares from parties
-      for (let pId of [1, 2, 3]) {
-        await dealer.receiveShare(c.getShare(pId));
-      }
-
-      expectToBeReconstructable(c, a.value * b.value);
     });
   });
   describe('inv', function() {
@@ -304,13 +307,17 @@ describe('MPC', function() {
       });
     });
   });
-  describe('computes power', function() {
+  describe('pow', function() {
     for (let params of [
+      { x: 3n, k: 1, z: 3n },
+      { x: 3n, k: 2, z: 9n },
+      { x: 3n, k: 3, z: 27n },
+      { x: 3n, k: 5, z: 243n },
       { x: 3n, k: 8, z: 6561n },
-      { x: 3n, k: 15, z: 14348907n },
+      { x: 3n, k: 13, z: 1594323n },
     ]) {
       it(`${params.x}^${params.k} = ${params.z}`, async function() {
-        const session = LocalStorageSession.init('test_power');
+        const session = LocalStorageSession.init(`test_power${params.k}`);
         const p1 = new Party(1, session);
         const p2 = new Party(2, session);
         const p3 = new Party(3, session);
@@ -350,9 +357,7 @@ describe('MPC', function() {
             await dealer.receiveShare(z.getShare(pId));
           }
 
-          // TODO: fail to reconstruct from k shares.
-          // expectToBeReconstructable(z, params.z);
-          expect(z.reconstruct()).toEqual(params.z);
+          expectToBeReconstructable(z, params.z);
         });
       })
     }
@@ -399,7 +404,7 @@ describe('MPC', function() {
   });
   describe('comtined arithmetics', function() {
     it('Given x, y, Caculates l = 3x^2 + a / 2y', async function() {
-      const session = LocalStorageSession.init('test_ec_add');
+      const session = LocalStorageSession.init('test_combined');
       const p1 = new Party(1, session);
       const p2 = new Party(2, session);
       const p3 = new Party(3, session);
