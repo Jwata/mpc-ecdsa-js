@@ -1,32 +1,7 @@
-import * as sinon from 'sinon';
 import * as sss from './shamir_secret_sharing';
 import * as GF from './finite_field';
 import { Secret, Share, Party, LocalStorageSession, MPC } from './mpc';
-
-// TODO: move to setup and recover teardown
-(function emulateStorageEvent() {
-  const origSetItem = window.localStorage.setItem;
-  sinon.stub(window.localStorage, 'setItem').callsFake((k: string, v: string) => {
-    const event: StorageEventInit = {
-      storageArea: localStorage,
-      key: k,
-      newValue: v,
-      oldValue: null,
-    }
-    console.debug('dispatching event');
-    window.dispatchEvent(new StorageEvent('storage', event))
-    origSetItem.apply(window.localStorage, [k, v]);
-  });
-})();
-
-async function background(f: () => void, delay: number = 0) {
-  return new Promise((resolve, _reject) => {
-    const id = setInterval(() => {
-      clearInterval(id);
-      resolve(f());
-    }, delay);
-  });
-}
+import { emulateStorageEvent, background, expectToBeReconstructable } from './test_utils';
 
 describe('Variable', function() {
   it('holds sahres', function() {
@@ -78,6 +53,13 @@ describe('Variable', function() {
   });
 });
 describe('Party', function() {
+  let stubCleanup: Function;
+  beforeAll(function() {
+    stubCleanup = emulateStorageEvent();
+  });
+  afterAll(function() {
+    stubCleanup();
+  });
   it('sends share to peer', async function() {
     const session = LocalStorageSession.init('test');
     const p1 = new Party(1, session);
@@ -141,19 +123,13 @@ describe('Party', function() {
 });
 
 describe('MPC', function() {
-  function expectToBeReconstructable(s: Secret, expected?: bigint) {
-    const s1 = s.getShare(1).value;
-    const s2 = s.getShare(2).value;
-    const s3 = s.getShare(3).value;
-    if (expected) {
-      expect(s.reconstruct()).toEqual(expected);
-    } else {
-      expected = s.reconstruct();
-    }
-    expect(sss.reconstruct([[1n, s1], [2n, s2]])).toEqual(expected);
-    expect(sss.reconstruct([[1n, s1], [3n, s3]])).toEqual(expected);
-    expect(sss.reconstruct([[2n, s2], [3n, s3]])).toEqual(expected);
-  }
+  let stubCleanup: Function;
+  beforeAll(function() {
+    stubCleanup = emulateStorageEvent();
+  });
+  afterAll(function() {
+    stubCleanup();
+  });
   describe('add', function() {
     it('computes addition', async function() {
       const session = LocalStorageSession.init('test_addition');
