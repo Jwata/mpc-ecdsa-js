@@ -7,6 +7,7 @@ import * as demoAdd from './demos/add';
 import * as demoMul from './demos/mul';
 import * as demoPow from './demos/pow';
 import './demo.css';
+import * as ellipic from 'elliptic';
 
 
 declare global {
@@ -17,6 +18,8 @@ declare global {
     demos: { [key: string]: { [key: string]: Function } };
     GF: any;
     sss: any;
+    ellipic: any;
+    ec: ellipic.ec;
   }
 }
 
@@ -53,6 +56,22 @@ window.mpclib = mpclib;
 window.GF = GF;
 
 window.sss = sss;
+
+window.ellipic = ellipic;
+
+const ec = new ellipic.ec('secp256k1');
+window.ec = ec;
+
+const keyPair = ec.keyFromPrivate(window.crypto.getRandomValues(new Uint8Array(32)));
+console.log(keyPair);
+
+const privEnc = keyPair.getPrivate('hex');
+const pubENc = keyPair.getPublic('hex');
+
+debugger
+
+// [s] = [s1, s2, s3]
+// [sG] = [s1G, s2G, s3G]?
 
 // Dealer uses fixed ID in demo
 const DEALER = 999;

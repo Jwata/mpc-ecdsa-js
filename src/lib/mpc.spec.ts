@@ -367,7 +367,7 @@ describe('MPC', function() {
 
       // Dealer
       await background(async () => {
-        const r = new Secret('r', GF.rand());
+        const r = new Secret('r');
 
         // recieve result shares from parties
         for (let pId of [1, 2, 3]) {
