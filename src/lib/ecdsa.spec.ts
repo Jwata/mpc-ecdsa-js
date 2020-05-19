@@ -1,4 +1,6 @@
 import * as ellipic from 'elliptic'
+
+import * as ecdsa from './ecdsa';
 import { Secret, Share, Party, LocalStorageSession, MPC } from './mpc';
 import { emulateStorageEvent, background, expectToBeReconstructable } from './test_utils';
 
@@ -26,9 +28,6 @@ describe('MPCEC', function() {
 
     // elliptic curve
     const ec = new ellipic.ec('secp256k1');
-    function bigendianSum(acc: bigint, x: number, i: number) {
-      return acc += (BigInt(x) << BigInt((31 - i) * 8));
-    }
 
     // Party
     for (let p of [p1, p2, p3]) {
@@ -45,10 +44,10 @@ describe('MPCEC', function() {
         expect(keyPair.getPrivate('hex')).toEqual(privHex);
 
         const pub = keyPair.getPublic();
-        const x = pub.getX().toArray('be', 32).reduce(bigendianSum, 0n);
-        const pubX = new Share('pubX', p.id, x);
-        const y = pub.getY().toArray('be', 32).reduce(bigendianSum, 0n);
-        const pubY = new Share('pubY', p.id, y);
+        const x = pub.getX().toJSON()
+        const pubX = new Share('pubX', p.id, `0x${x}`);
+        const y = pub.getY().toJSON()
+        const pubY = new Share('pubY', p.id, `0x${y}`);
 
         await mpc.p.sendShare(priv, dealer.id);
         await mpc.p.sendShare(pubX, dealer.id);
@@ -63,18 +62,23 @@ describe('MPCEC', function() {
       const pubY = new Secret('pubY');
 
       // recieve result shares from parties
+      const points: Array<[number, ecdsa.ECPoint]> = [];
       for (let pId of [1, 2, 3]) {
         await dealer.receiveShare(priv.getShare(pId));
         await dealer.receiveShare(pubX.getShare(pId));
         await dealer.receiveShare(pubY.getShare(pId));
+        const P = ec.keyFromPublic({
+          x: pubX.getShare(pId).value.toString(16),
+          y: pubY.getShare(pId).value.toString(16)
+        }).getPublic();
+        points.push([pId, P]);
       }
+      const pubFromShares = ecdsa.reconstruct(points);
 
       expectToBeReconstructable(priv);
+      const pubExpected = ec.keyFromPrivate(priv.value.toString(16), 'hex').getPublic();
 
-      const keyPair = ec.keyFromPrivate(priv.value.toString(16), 'hex');
-      const x = keyPair.getPublic().getX().toArray('be', 32).reduce(bigendianSum, 0n);
-      expectToBeReconstructable(pubX, x);
-      // expectToBeReconstructable(pubY);
+      expect(pubExpected.eq(pubFromShares)).toBeTrue();
     });
   });
 });

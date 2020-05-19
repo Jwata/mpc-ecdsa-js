@@ -7,7 +7,8 @@ import * as demoAdd from './demos/add';
 import * as demoMul from './demos/mul';
 import * as demoPow from './demos/pow';
 import './demo.css';
-import * as ellipic from 'elliptic';
+import * as elliptic from 'elliptic';
+import * as BN from 'bn.js';
 
 
 declare global {
@@ -18,8 +19,9 @@ declare global {
     demos: { [key: string]: { [key: string]: Function } };
     GF: any;
     sss: any;
-    ellipic: any;
-    ec: ellipic.ec;
+    elliptic: any;
+    ec: elliptic.ec;
+    BN: any;
   }
 }
 
@@ -57,9 +59,11 @@ window.GF = GF;
 
 window.sss = sss;
 
-window.ellipic = ellipic;
+window.elliptic = elliptic;
 
-const ec = new ellipic.ec('secp256k1');
+window.BN = BN;
+
+const ec = new elliptic.ec('secp256k1');
 window.ec = ec;
 
 const keyPair = ec.keyFromPrivate(window.crypto.getRandomValues(new Uint8Array(32)));
