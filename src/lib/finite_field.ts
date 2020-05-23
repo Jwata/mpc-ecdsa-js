@@ -10,15 +10,14 @@ import * as secureRandom from './secure_random';
  *   This number is known as a recommended parameter for secp256k1 Koblitz curve.
  *   http://www.secg.org/sec2-v2.pdf
  */
-const P = 115792089237316195423570985008687907853269984665640564039457584007908834671663n
-export { P };
+export const P = BigInt('0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f');
 
 export function add(x: bigint, y: bigint): bigint {
-  return (P + x + y) % P;
+  return normalize(x + y);
 }
 
 export function mul(x: bigint, y: bigint): bigint {
-  return (x * y) % P;
+  return normalize(x * y);
 }
 
 export function inv(x: bigint): bigint {
@@ -26,7 +25,7 @@ export function inv(x: bigint): bigint {
   if (x == 0n) throw new TypeError("'0' doesn't have inverse");
   if (x < 0) x += P;
   let r = egcd(P, x)[2];
-  return (P + r) % P;
+  return normalize(P + r);
 }
 
 function egcd(a: bigint, b: bigint): [bigint, bigint, bigint] {
@@ -38,4 +37,9 @@ function egcd(a: bigint, b: bigint): [bigint, bigint, bigint] {
 // generates random number in finite field
 export function rand(): bigint {
   return secureRandom.random256() % P;
+}
+
+function normalize(x: bigint) {
+  x = x % P
+  return (x > 0) ? x : x + P;
 }
