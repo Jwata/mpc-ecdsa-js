@@ -1,7 +1,23 @@
 import * as sinon from 'sinon';
 import * as sss from './shamir_secret_sharing';
-import { Secret } from './mpc';
+import { Party, Secret, LocalStorageSession } from './mpc';
 
+export function setupParties(test: jasmine.Block, session_name: string) {
+  console.log('session_name', session_name);
+  const session = LocalStorageSession.init(session_name);
+  test.p1 = new Party(1, session);
+  test.p2 = new Party(2, session);
+  test.p3 = new Party(3, session);
+  test.parties = [test.p1, test.p2, test.p3];
+  test.dealer = new Party(999, session);
+  test.conf = { n: 3, k: 2 };
+
+  // All participants connect to the network
+  test.p1.connect();
+  test.p2.connect();
+  test.p3.connect();
+  test.dealer.connect();
+}
 
 export function emulateStorageEvent() {
   const origSetItem = window.localStorage.setItem;

@@ -1,8 +1,8 @@
 import * as ellipic from 'elliptic'
 
-import { emulateStorageEvent, background, expectToBeReconstructable } from './test_utils';
+import { emulateStorageEvent, background, expectToBeReconstructable, setupParties } from './test_utils';
 import * as GF from './finite_field';
-import { Secret, Share, Party, LocalStorageSession, MPC } from './mpc';
+import { Secret, Share, MPC } from './mpc';
 import * as ecdsa from './ecdsa';
 
 // elliptic curve
@@ -20,33 +20,17 @@ function expectToBeReconstructablePubkey(priv: Secret, points: Array<[number, ec
   expect(pubExpected.eq(ecdsa.reconstruct([points[1], points[2]]))).toBeTruthy('Failed to reconstruct pubkey from share 2,3');
 }
 
-describe('MPCEC', function() {
+fdescribe('MPCEC', function() {
   let stubCleanup: Function;
   beforeAll(function() {
     stubCleanup = emulateStorageEvent();
-  });
-  beforeEach(function() {
-    this.session_name;
-    const session = LocalStorageSession.init(this.session_name);
-    this.p1 = new Party(1, session);
-    this.p2 = new Party(2, session);
-    this.p3 = new Party(3, session);
-    this.parties = [this.p1, this.p2, this.p3];
-    this.dealer = new Party(999, session);
-    this.conf = { n: 3, k: 2 };
-
-    // All participants connect to the network
-    this.p1.connect();
-    this.p2.connect();
-    this.p3.connect();
-    this.dealer.connect();
   });
   afterAll(function() {
     stubCleanup();
   });
   describe('reconstruct', function() {
     it('reconstructs pubkey from shares', async function() {
-      this.session_name = 'test_ec_keygen';
+      setupParties(this, 'test_ec_reconstruct');
 
       // Party
       for (let p of this.parties) {
@@ -101,9 +85,8 @@ describe('MPCEC', function() {
   });
   describe('keyGen', function() {
     it('generates private key shares', async function() {
-      this.session_name = 'test_ec_keygen'
+      setupParties(this, 'test_ec_keygen');
 
-      // Party
       for (let p of this.parties) {
         background(async () => {
           const mpc = new ecdsa.MPCECDsa(p, this.conf, ec);
@@ -127,6 +110,29 @@ describe('MPCEC', function() {
     });
   });
   describe('sign', function() {
+    it('signs to message with private key shares', async function() {
+      setupParties(this, 'test_ec_sign');
 
+      for (let p of this.parties) {
+        background(async () => {
+          const mpc = new ecdsa.MPCECDsa(p, this.conf, ec);
+
+          await mpc.keyGen()
+
+          // Party1 reconstructs keyPair on behalf of the parties.
+          await mpc.p.sendShare(mpc.privateKey, this.p1.id);
+          if (p != this.p1) return;
+
+          const priv = new Secret('privateKey');
+          for (let pId of [1, 2, 3]) {
+            await p.receiveShare(priv.getShare(pId));
+          }
+          expectToBeReconstructable(priv);
+          const pub = mpc.curve.keyFromPrivate(
+            priv.value.toString(16)).getPublic();
+          expect(mpc.publicKey.eq(pub)).toBeTruthy();
+        });
+      }
+    });
   });
 });
