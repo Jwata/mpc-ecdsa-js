@@ -346,6 +346,7 @@ type MPCConfig = {
   n: number,
   k: number,
   p?: bigint,
+  N?: bigint,
   dealer?: number,
 }
 

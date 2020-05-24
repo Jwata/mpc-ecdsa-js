@@ -66,17 +66,6 @@ window.BN = BN;
 const ec = new elliptic.ec('secp256k1');
 window.ec = ec;
 
-const keyPair = ec.keyFromPrivate(window.crypto.getRandomValues(new Uint8Array(32)));
-console.log(keyPair);
-
-const privEnc = keyPair.getPrivate('hex');
-const pubENc = keyPair.getPublic('hex');
-
-debugger
-
-// [s] = [s1, s2, s3]
-// [sG] = [s1G, s2G, s3G]?
-
 // Dealer uses fixed ID in demo
 const DEALER = 999;
 
@@ -88,7 +77,7 @@ function initMPC() {
   const dealer = new mpclib.Party(pId, session);
   const n = Number(urlParams.get('n') || 3);
   const k = Number(urlParams.get('k') || 2);
-  const conf = { n: n, k: k, p: GF.P, dealer: DEALER }
+  const conf = { n: n, k: k, N: GF.N, dealer: DEALER }
   return new mpclib.MPC(dealer, conf);
 };
 
@@ -102,7 +91,7 @@ const settingsTamplate = `
   <li>Party: <%= party %></li>
   <li>N: <%= n %></li>
   <li>K: <%= k %></li>
-  <li>GF.P: <%= p %></li>
+  <li>GF.N: <%= N %></li>
 </ul>
 `;
 

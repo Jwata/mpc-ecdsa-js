@@ -1,16 +1,16 @@
 import * as GF from './finite_field';
 
 function inGFP(x: bigint) {
-  return (x >= 0 && x < GF.P)
+  return (x >= 0 && x < GF.N)
 }
 
 describe('add', function() {
   let x: bigint, y: bigint, z: bigint;
   for ([x, y, z] of [
     [1n, 2n, 3n],
-    [GF.P - 1n, 1n, 0n],
-    [1n, GF.P - 1n, 0n],
-    [GF.P + 1n, GF.P + 1n, 2n],
+    [GF.N - 1n, 1n, 0n],
+    [1n, GF.N - 1n, 0n],
+    [GF.N + 1n, GF.N + 1n, 2n],
   ]) {
     it(`${x} + ${y} = ${z} in GF(P)`, function() {
       let xy = GF.add(x, y);
@@ -24,10 +24,10 @@ describe('mul', function() {
   let x: bigint, y: bigint, z: bigint;
   for ([x, y, z] of [
     [1n, 2n, 2n],
-    [GF.P - 2n, 1n, GF.P - 2n],
-    [GF.P - 2n, 3n, GF.P - 6n],
-    [2n, GF.P - 3n, GF.P - 6n],
-    [GF.P - 2n, GF.P - 3n, 6n],
+    [GF.N - 2n, 1n, GF.N - 2n],
+    [GF.N - 2n, 3n, GF.N - 6n],
+    [2n, GF.N - 3n, GF.N - 6n],
+    [GF.N - 2n, GF.N - 3n, 6n],
   ]) {
     it(`${x} * ${y} = ${z} in GF(P)`, function() {
       let xy = GF.mul(x, y);
@@ -39,7 +39,7 @@ describe('mul', function() {
 
 describe('inv', function() {
   const r = GF.rand();
-  for (let x of [1n, GF.P - 1n, r]) {
+  for (let x of [1n, GF.N - 1n, r]) {
     it(`invserses ${x} in GF(P)`, function() {
       let xInv = GF.inv(x);
       expect(inGFP(xInv)).toBeTrue();

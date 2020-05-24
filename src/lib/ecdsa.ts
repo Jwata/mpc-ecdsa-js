@@ -4,6 +4,8 @@ import * as elliptic from 'elliptic';
 import * as GF from './finite_field';
 import * as mpclib from './mpc';
 
+export const N = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
+
 export type ECPoint = elliptic.curve.base.BasePoint;
 
 export class MPCEC {
@@ -17,7 +19,7 @@ export class MPCEC {
 
 // Reconstruct EC point from shares.
 export function reconstruct(
-  shares: Array<[bigint|number, ECPoint]>): ECPoint {
+  shares: Array<[bigint | number, ECPoint]>): ECPoint {
   // f(x=0)*G
   const x = 0n;
 
@@ -40,12 +42,12 @@ export function reconstruct(
     }
 
     let l = GF.mul(n, GF.inv(d));
-    P = P.add(Pi.mul(bigintToBN(l)))
+    P = P.add(Pi.mul(bigintToBN(l)));
   }
 
   return P;
 }
 
-function bigintToBN(n: bigint): BN {
+export function bigintToBN(n: bigint): BN {
   return new BN(n.toString(16), 'hex', 'be');
 }
