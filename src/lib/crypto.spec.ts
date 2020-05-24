@@ -22,15 +22,11 @@ describe('getRandomValues', function() {
   });
 });
 
-fdescribe('sha256', function() {
+describe('sha256', function() {
   it('calculates sha256 hash from string message', async function() {
     const m = 'hello mpc ecdsa';
-    const hashBuffer = await sha256(m);
+    const h = await sha256(m);
 
-    // convert array buffer to hex
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-    expect(hashHex).toEqual('853b16f3891d1d6d3d2faedf63b2e345de11962ebca485e5f5edae5c6ea3525a');
+    expect(h).toEqual('853b16f3891d1d6d3d2faedf63b2e345de11962ebca485e5f5edae5c6ea3525a');
   });
 });

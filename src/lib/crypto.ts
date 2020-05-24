@@ -21,8 +21,11 @@ export function getRandomValues(n: number): Uint32Array {
  * It internally calls SubtleCrypto.digest() in Web Crypto APIs.
  * See also https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
  */
-export async function sha256(m: string, hex = true): Promise<ArrayBuffer> {
+export async function sha256(m: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(m);
-  return window.crypto.subtle.digest('SHA-256', data);
+  return window.crypto.subtle.digest('SHA-256', data).then((hashBuf) => {
+    const hashArray = Array.from(new Uint8Array(hashBuf));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  });
 }
