@@ -25,28 +25,33 @@ describe('MPCEC', function() {
   beforeAll(function() {
     stubCleanup = emulateStorageEvent();
   });
+  beforeEach(function() {
+    this.session_name;
+    const session = LocalStorageSession.init(this.session_name);
+    this.p1 = new Party(1, session);
+    this.p2 = new Party(2, session);
+    this.p3 = new Party(3, session);
+    this.parties = [this.p1, this.p2, this.p3];
+    this.dealer = new Party(999, session);
+    this.conf = { n: 3, k: 2 };
+
+    // All participants connect to the network
+    this.p1.connect();
+    this.p2.connect();
+    this.p3.connect();
+    this.dealer.connect();
+  });
   afterAll(function() {
     stubCleanup();
   });
   describe('reconstruct', function() {
     it('reconstructs pubkey from shares', async function() {
-      const session = LocalStorageSession.init('test_ec_keygen');
-      const p1 = new Party(1, session);
-      const p2 = new Party(2, session);
-      const p3 = new Party(3, session);
-      const dealer = new Party(999, session);
-      const conf = { n: 3, k: 2 };
-
-      // All participants connect to the network
-      p1.connect();
-      p2.connect();
-      p3.connect();
-      dealer.connect();
+      this.session_name = 'test_ec_keygen';
 
       // Party
-      for (let p of [p1, p2, p3]) {
+      for (let p of this.parties) {
         background(async () => {
-          const mpc = new MPC(p, conf);
+          const mpc = new MPC(p, this.conf);
 
           // generate priv key shares
           const priv = new Share('priv', p.id);
@@ -62,18 +67,18 @@ describe('MPCEC', function() {
           const y = pub.getY().toJSON()
           const pubY = new Share('pubY', p.id, `0x${y}`);
 
-          await mpc.p.sendShare(pubX, dealer.id);
-          await mpc.p.sendShare(pubY, dealer.id);
+          await mpc.p.sendShare(pubX, this.dealer.id);
+          await mpc.p.sendShare(pubY, this.dealer.id);
         });
       }
 
       // Dealer
       await background(async () => {
-        const mpc = new MPC(dealer, conf);
+        const mpc = new MPC(this.dealer, this.conf);
 
         const priv = new Secret('priv', GF.rand());
         for (let [idx, share] of Object.entries(mpc.split(priv))) {
-          await dealer.sendShare(share, Number(idx));
+          await mpc.sendShare(share, Number(idx));
         }
 
         const pubX = new Secret('pubX');
@@ -81,8 +86,8 @@ describe('MPCEC', function() {
         // recieve result shares from parties
         const points: Array<[number, ecdsa.ECPoint]> = [];
         for (let pId of [1, 2, 3]) {
-          await dealer.receiveShare(pubX.getShare(pId));
-          await dealer.receiveShare(pubY.getShare(pId));
+          await mpc.p.receiveShare(pubX.getShare(pId));
+          await mpc.p.receiveShare(pubY.getShare(pId));
           const P = ec.keyFromPublic({
             x: pubX.getShare(pId).value.toString(16),
             y: pubY.getShare(pId).value.toString(16)
@@ -96,31 +101,18 @@ describe('MPCEC', function() {
   });
   describe('keyGen', function() {
     it('generates private key shares', async function() {
-      const session = LocalStorageSession.init('test_ec_keygen');
-      const p1 = new Party(1, session);
-      const p2 = new Party(2, session);
-      const p3 = new Party(3, session);
-      const dealer = new Party(999, session);
-      const conf = { n: 3, k: 2 };
-
-      // All participants connect to the network
-      p1.connect();
-      p2.connect();
-      p3.connect();
-      dealer.connect();
+      this.session_name = 'test_ec_keygen'
 
       // Party
-      for (let p of [p1, p2, p3]) {
+      for (let p of this.parties) {
         background(async () => {
-          const mpc = new ecdsa.MPCECDsa(p, conf, ec);
+          const mpc = new ecdsa.MPCECDsa(p, this.conf, ec);
 
           await mpc.keyGen()
 
-          // send private key share for assertion
-          await mpc.p.sendShare(mpc.privateKey, p1.id);
-
           // Party1 reconstructs keyPair on behalf of the parties.
-          if (p != p1) return;
+          await mpc.p.sendShare(mpc.privateKey, this.p1.id);
+          if (p != this.p1) return;
 
           const priv = new Secret('privateKey');
           for (let pId of [1, 2, 3]) {
@@ -133,5 +125,8 @@ describe('MPCEC', function() {
         });
       }
     });
+  });
+  describe('sign', function() {
+
   });
 });
