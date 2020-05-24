@@ -1,7 +1,7 @@
 /**
  * finite_field module implements operations on prime field
  */
-import * as secureRandom from './secure_random';
+import { secureRandom256 } from './crypto';
 
 /**
  * secp256k1 elliptic curve parameters P and N.
@@ -34,7 +34,7 @@ function egcd(a: bigint, b: bigint): [bigint, bigint, bigint] {
 
 // generates random number in finite field
 export function rand(): bigint {
-  return secureRandom.random256() % N;
+  return secureRandom256() % N;
 }
 
 function normalize(x: bigint) {
