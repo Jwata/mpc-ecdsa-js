@@ -1,4 +1,4 @@
-import * as ellipic from 'elliptic';
+import * as elliptic from 'elliptic';
 const Signature = require('elliptic/lib/elliptic/ec/signature');
 
 import { sha256 } from './crypto';
@@ -8,7 +8,7 @@ import * as ecdsa from './ecdsa';
 import { emulateStorageEvent, background, expectToBeReconstructable, setupParties } from './test_utils';
 
 // elliptic curve
-const ec = new ellipic.ec('secp256k1');
+const ec = new elliptic.ec('secp256k1');
 
 function expectToBeReconstructablePubkey(priv: Secret, points: Array<[number, ecdsa.ECPoint]>) {
   const keyPair = ec.keyFromPrivate(priv.value.toString(16), 'hex');
@@ -126,53 +126,29 @@ fdescribe('MPCEC', function() {
         const future = background(async () => {
           const mpc = new ecdsa.MPCECDsa(p, this.conf, ec);
 
+          // generate private key.
           await mpc.keyGen()
 
-          // generate nonce k
-          const ki = new Share('k', p.id);
-          await mpc.rand(ki);
-          const ki_inv = new Share('k^-1', p.id);
-          await mpc.inv(ki_inv, ki);
+          // sign to the message.
+          const sig = await mpc.sign(m, mpc.privateKey, mpc.publicKey);
 
-          const R = await mpc.randPoint(ki);
-          const r = new Public('r', ecdsa.bnToBigint(R.getX()));
 
-          const hashHex = await sha256(m);
-          const h = BigInt(`0x${hashHex}`);
-
-          // beta = H(m) + r * x
-          const betaValue = GF.add(h, GF.mul(r.value, mpc.privateKey.value));
-          const bi = new Share('beta', p.id, betaValue);
-
-          // s = k^-1 * beta
-          const si = new Share('s', p.id);
-          await mpc.mul(si, ki_inv, bi);
-
-          // Party1 reconstructs keyPair and assert on behalf of the parties.
+          // Party1 reconstructs keyPair and leave logs.
           await mpc.p.sendShare(mpc.privateKey, this.p1.id);
-          await mpc.p.sendShare(si, this.p1.id);
 
           if (p.id == this.p1.id) {
             const priv = new Secret('privateKey');
-            const s = new Secret('s');
             for (let pId of [1, 2, 3]) {
               await p.receiveShare(priv.getShare(pId));
-              await p.receiveShare(s.getShare(pId));
             }
             expectToBeReconstructable(priv);
-            expectToBeReconstructable(s);
 
-            const sig: ellipic.ec.Signature = new Signature({
-              r: r.value.toString(16),
-              s: s.value.toString(16),
-            });
-            const keyPair = ec.keyFromPrivate(priv.value.toString(16), 'hex');
-            expect(keyPair.verify(ecdsa.bigintToBN(h), sig)).toBeTruthy();
-
-            console.log(`PrivateKey: ${keyPair.getPrivate('hex')}`);
+            const keyPair = mpc.curve.keyFromPublic(
+              mpc.publicKey.encodeCompressed('hex'), 'hex');
+            console.log(`PrivateKey: ${priv.toHex()}`);
             console.log(`Publickey(compressed): ${keyPair.getPublic(true, 'hex')}`);
             console.log(`Publickey: X=${keyPair.getPublic().getX().toJSON()}, Y=${keyPair.getPublic().getY().toJSON()}`)
-            console.log(`Message = SHA256('${m}'): ${hashHex}`);
+            console.log(`Message = SHA256('${m}'): ${await sha256(m)}`);
             console.log(`Signature(DER): ${sig.toDER('hex')}`)
           }
         });

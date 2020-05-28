@@ -1,12 +1,21 @@
 import * as BN from 'bn.js';
 import * as elliptic from 'elliptic';
+const Signature = require('elliptic/lib/elliptic/ec/signature');
 
+import { sha256 } from './crypto';
 import * as GF from './finite_field';
-import { Party, MPC, MPCConfig, Secret, Share } from './mpc';
+import { Party, MPC, MPCConfig, Secret, Share, Public } from './mpc';
 
 export const N = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
 
 export type ECPoint = elliptic.curve.base.BasePoint;
+
+class MPCECDSAError extends Error {
+  constructor(m?: string) {
+    super(m);
+    Object.setPrototypeOf(this, MPCECDSAError.prototype);
+  }
+}
 
 // Reconstruct EC point from shares.
 export function reconstruct(
@@ -99,5 +108,55 @@ export class MPCECDsa extends MPC {
     this.privateKey = new Share('privateKey', this.p.id);
     await this.rand(this.privateKey);
     this.publicKey = await this.randPoint(this.privateKey);
+  }
+  async sign(
+    m: string, pk: Share, pubkey: ECPoint): Promise<elliptic.ec.Signature> {
+    // calculate h(m)
+    const hHex = await sha256(m);
+    const h = BigInt(`0x${hHex}`);
+
+    // generate nonce k and invert it.
+    const ki = new Share(`sign#${hHex}#k`, this.p.id);
+    await this.rand(ki);
+    const ki_inv = new Share(`sign#${hHex}#k^-1`, this.p.id);
+    await this.inv(ki_inv, ki);
+
+    const R = await this.randPoint(ki);
+    const r = new Public(`sign#${hHex}#r`, bnToBigint(R.getX()));
+
+    // beta = H(m) + r * x
+    const bi = new Share(`sign#${hHex}#beta`, this.p.id,
+      GF.add(h, GF.mul(r.value, pk.value)));
+
+    // s = k^-1 * beta
+    const si = new Share(`sign#${hHex}#s`, this.p.id);
+    await this.mul(si, ki_inv, bi);
+
+    // Send `s` to peers and reconstruct it.
+    const s = new Secret(`sign#${hHex}#s`);
+    for (let j = 1; j <= this.conf.n; j++) {
+      if (this.p.id == j) continue;
+      await this.sendShare(si, j);
+    }
+    for (let j = 1; j <= this.conf.n; j++) {
+      if (this.p.id == j) {
+        s.setShare(j, si.value);
+        continue;
+      }
+      await this.recieveShare(s.getShare(j));
+    }
+    s.reconstruct()
+
+    // verify the signature.
+    const keyPair = this.curve.keyFromPublic(
+      pubkey.encodeCompressed('hex'), 'hex');
+    const sig: elliptic.ec.Signature = new Signature({
+      r: r.value.toString(16),
+      s: s.value.toString(16),
+    });
+    if (!keyPair.verify(hHex, sig)) {
+      throw new MPCECDSAError('Failed to construct a valid signature');
+    }
+    return sig;
   }
 }
