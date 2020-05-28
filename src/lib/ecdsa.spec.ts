@@ -22,7 +22,7 @@ function expectToBeReconstructablePubkey(priv: Secret, points: Array<[number, ec
   expect(pubExpected.eq(ecdsa.reconstruct([points[1], points[2]]))).toBeTruthy('Failed to reconstruct pubkey from share 2,3');
 }
 
-describe('MPCEC', function() {
+fdescribe('MPCEC', function() {
   let stubCleanup: Function;
   beforeAll(function() {
     stubCleanup = emulateStorageEvent();
@@ -106,7 +106,7 @@ describe('MPCEC', function() {
             expectToBeReconstructable(priv);
             const pub = mpc.curve.keyFromPrivate(
               priv.value.toString(16)).getPublic();
-            expect(mpc.publicKey.eq(pub)).toBeFalsy();
+            expect(mpc.publicKey.eq(pub)).toBeTruthy();
           }
         });
         futures.push(future);
@@ -116,7 +116,7 @@ describe('MPCEC', function() {
     });
   });
   describe('sign', function() {
-    fit('signs to message with private key shares', async function() {
+    it('signs to message with private key shares', async function() {
       setupParties(this, 'test_ec_sign');
 
       const m = 'hello mpc ecdsa';
@@ -166,8 +166,8 @@ describe('MPCEC', function() {
               r: r.value.toString(16),
               s: s.value.toString(16),
             });
-            const keyPair = ec.keyFromPrivate(priv.value.toString(16));
-            expect(keyPair.verify(hashHex, sig)).toBeFalsy();
+            const keyPair = ec.keyFromPrivate(priv.value.toString(16), 'hex');
+            expect(keyPair.verify(ecdsa.bigintToBN(h), sig)).toBeTruthy();
 
             console.log(`PrivateKey: ${keyPair.getPrivate('hex')}`);
             console.log(`Publickey(compressed): ${keyPair.getPublic(true, 'hex')}`);

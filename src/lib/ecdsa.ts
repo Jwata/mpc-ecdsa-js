@@ -56,8 +56,6 @@ export class MPCECDsa extends MPC {
     this.curve = curve;
   };
   async randPoint(r: Share) {
-    await this.rand(r);
-
     // derive R from r.
     const rHex = r.value.toString(16);
     const keyPair = this.curve.keyFromPrivate(rHex, 'hex');
@@ -99,6 +97,7 @@ export class MPCECDsa extends MPC {
   }
   async keyGen() {
     this.privateKey = new Share('privateKey', this.p.id);
+    await this.rand(this.privateKey);
     this.publicKey = await this.randPoint(this.privateKey);
   }
 }
