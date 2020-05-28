@@ -230,9 +230,12 @@ class MPC {
   async broadcastPublic(p: Public) {
     const promisses = [];
     for (let i = 1; i <= this.conf.n; i++) {
-      promisses.push(this.p.sendPublic(p, i));
+      promisses.push(this.sendPublic(p, i));
     }
     return Promise.allSettled(promisses);
+  }
+  async sendPublic(p: Public, peer: number) {
+    return this.p.sendPublic(p, peer);
   }
   async recievePublic(p: Public) {
     return this.p.receivePublic(p);

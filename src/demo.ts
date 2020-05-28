@@ -10,6 +10,7 @@ import * as demoInv from './demos/inv';
 import * as demoAdd from './demos/add';
 import * as demoMul from './demos/mul';
 import * as demoPow from './demos/pow';
+import * as demoECDSA from './demos/ecdsa';
 import './demo.css';
 
 
@@ -155,6 +156,10 @@ window.addEventListener('DOMContentLoaded', function() {
     pow: {
       dealer: demoPow.dealer(mpc),
       party: demoPow.party(mpc),
+    },
+    ecdsa: {
+      dealer: demoECDSA.dealer(mpc),
+      party: demoECDSA.party(mpc),
     },
   }
 
