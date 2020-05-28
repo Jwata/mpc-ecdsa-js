@@ -3,7 +3,7 @@ const Signature = require('elliptic/lib/elliptic/ec/signature');
 
 import { sha256 } from './crypto';
 import * as GF from './finite_field';
-import { Secret, Share, Public, MPC } from './mpc';
+import { Secret, Share, MPC } from './mpc';
 import * as ecdsa from './ecdsa';
 import { emulateStorageEvent, background, expectToBeReconstructable, setupParties } from './test_utils';
 
@@ -94,10 +94,11 @@ fdescribe('MPCEC', function() {
         const future = background(async () => {
           const mpc = new ecdsa.MPCECDsa(p, this.conf, ec);
 
-          await mpc.keyGen()
+          const privkey = new Share('privateKey', p.id);
+          const pubkey = await mpc.keyGen(privkey);
 
           // Party1 reconstructs keyPair and assert on behalf of the parties.
-          await mpc.p.sendShare(mpc.privateKey, this.p1.id);
+          await mpc.p.sendShare(privkey, this.p1.id);
           if (p.id == this.p1.id) {
             const priv = new Secret('privateKey');
             for (let pId of [1, 2, 3]) {
@@ -106,7 +107,7 @@ fdescribe('MPCEC', function() {
             expectToBeReconstructable(priv);
             const pub = mpc.curve.keyFromPrivate(
               priv.value.toString(16)).getPublic();
-            expect(mpc.publicKey.eq(pub)).toBeTruthy();
+            expect(pubkey.eq(pub)).toBeTruthy();
           }
         });
         futures.push(future);
@@ -127,14 +128,14 @@ fdescribe('MPCEC', function() {
           const mpc = new ecdsa.MPCECDsa(p, this.conf, ec);
 
           // generate private key.
-          await mpc.keyGen()
+          const privkey = new Share('privateKey', p.id);
+          const pubkey = await mpc.keyGen(privkey);
 
           // sign to the message.
-          const sig = await mpc.sign(m, mpc.privateKey, mpc.publicKey);
-
+          const sig = await mpc.sign(m, privkey, pubkey);
 
           // Party1 reconstructs keyPair and leave logs.
-          await mpc.p.sendShare(mpc.privateKey, this.p1.id);
+          await mpc.p.sendShare(privkey, this.p1.id);
 
           if (p.id == this.p1.id) {
             const priv = new Secret('privateKey');
@@ -144,7 +145,7 @@ fdescribe('MPCEC', function() {
             expectToBeReconstructable(priv);
 
             const keyPair = mpc.curve.keyFromPublic(
-              mpc.publicKey.encodeCompressed('hex'), 'hex');
+              pubkey.encodeCompressed('hex'), 'hex');
             console.log(`PrivateKey: ${priv.toHex()}`);
             console.log(`Publickey(compressed): ${keyPair.getPublic(true, 'hex')}`);
             console.log(`Publickey: X=${keyPair.getPublic().getX().toJSON()}, Y=${keyPair.getPublic().getY().toJSON()}`)

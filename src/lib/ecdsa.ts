@@ -58,13 +58,65 @@ export function bnToBigint(bn: BN): bigint {
 
 export class MPCECDsa extends MPC {
   curve: elliptic.ec;
-  privateKey: Share;
-  publicKey: ECPoint;
   constructor(p: Party, conf: MPCConfig, curve: elliptic.ec) {
     super(p, conf);
     this.curve = curve;
   };
-  async randPoint(r: Share) {
+  async keyGen(pk: Share): Promise<ECPoint> {
+    await this.rand(pk);
+    return this._derivePoint(pk);
+  }
+  async sign(
+    m: string, pk: Share, pubkey: ECPoint): Promise<elliptic.ec.Signature> {
+    // calculate h(m)
+    const hHex = await sha256(m);
+    const h = BigInt(`0x${hHex}`);
+
+    // generate nonce k and invert it.
+    const ki = new Share(`sign#${hHex}#k`, this.p.id);
+    await this.rand(ki);
+    const ki_inv = new Share(`sign#${hHex}#k^-1`, this.p.id);
+    await this.inv(ki_inv, ki);
+
+    const R = await this._derivePoint(ki);
+    const r = new Public(`sign#${hHex}#r`, bnToBigint(R.getX()));
+
+    // beta = H(m) + r * x
+    const bi = new Share(`sign#${hHex}#beta`, this.p.id,
+      GF.add(h, GF.mul(r.value, pk.value)));
+
+    // s = k^-1 * beta
+    const si = new Share(`sign#${hHex}#s`, this.p.id);
+    await this.mul(si, ki_inv, bi);
+
+    // Send `s` to peers and reconstruct it.
+    const s = new Secret(`sign#${hHex}#s`);
+    for (let j = 1; j <= this.conf.n; j++) {
+      if (this.p.id == j) continue;
+      await this.sendShare(si, j);
+    }
+    for (let j = 1; j <= this.conf.n; j++) {
+      if (this.p.id == j) {
+        s.setShare(j, si.value);
+        continue;
+      }
+      await this.recieveShare(s.getShare(j));
+    }
+    s.reconstruct()
+
+    // verify the signature.
+    const keyPair = this.curve.keyFromPublic(
+      pubkey.encodeCompressed('hex'), 'hex');
+    const sig: elliptic.ec.Signature = new Signature({
+      r: r.value.toString(16),
+      s: s.value.toString(16),
+    });
+    if (!keyPair.verify(hHex, sig)) {
+      throw new MPCECDSAError('Failed to construct a valid signature');
+    }
+    return sig;
+  }
+  async _derivePoint(r: Share) {
     // derive R from r.
     const rHex = r.value.toString(16);
     const keyPair = this.curve.keyFromPrivate(rHex, 'hex');
@@ -103,60 +155,5 @@ export class MPCECDsa extends MPC {
     }
 
     return reconstruct(points);
-  }
-  async keyGen() {
-    this.privateKey = new Share('privateKey', this.p.id);
-    await this.rand(this.privateKey);
-    this.publicKey = await this.randPoint(this.privateKey);
-  }
-  async sign(
-    m: string, pk: Share, pubkey: ECPoint): Promise<elliptic.ec.Signature> {
-    // calculate h(m)
-    const hHex = await sha256(m);
-    const h = BigInt(`0x${hHex}`);
-
-    // generate nonce k and invert it.
-    const ki = new Share(`sign#${hHex}#k`, this.p.id);
-    await this.rand(ki);
-    const ki_inv = new Share(`sign#${hHex}#k^-1`, this.p.id);
-    await this.inv(ki_inv, ki);
-
-    const R = await this.randPoint(ki);
-    const r = new Public(`sign#${hHex}#r`, bnToBigint(R.getX()));
-
-    // beta = H(m) + r * x
-    const bi = new Share(`sign#${hHex}#beta`, this.p.id,
-      GF.add(h, GF.mul(r.value, pk.value)));
-
-    // s = k^-1 * beta
-    const si = new Share(`sign#${hHex}#s`, this.p.id);
-    await this.mul(si, ki_inv, bi);
-
-    // Send `s` to peers and reconstruct it.
-    const s = new Secret(`sign#${hHex}#s`);
-    for (let j = 1; j <= this.conf.n; j++) {
-      if (this.p.id == j) continue;
-      await this.sendShare(si, j);
-    }
-    for (let j = 1; j <= this.conf.n; j++) {
-      if (this.p.id == j) {
-        s.setShare(j, si.value);
-        continue;
-      }
-      await this.recieveShare(s.getShare(j));
-    }
-    s.reconstruct()
-
-    // verify the signature.
-    const keyPair = this.curve.keyFromPublic(
-      pubkey.encodeCompressed('hex'), 'hex');
-    const sig: elliptic.ec.Signature = new Signature({
-      r: r.value.toString(16),
-      s: s.value.toString(16),
-    });
-    if (!keyPair.verify(hHex, sig)) {
-      throw new MPCECDSAError('Failed to construct a valid signature');
-    }
-    return sig;
   }
 }
