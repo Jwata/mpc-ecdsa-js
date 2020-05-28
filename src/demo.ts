@@ -1,14 +1,16 @@
 import * as _ from 'lodash';
+import * as elliptic from 'elliptic';
+import * as BN from 'bn.js';
+
 import * as sss from './lib/shamir_secret_sharing';
 import * as GF from './lib/finite_field';
 import { MPC, Party, LocalStorageSession, Share, Secret, Variable } from './lib/mpc';
+import * as ecdsa from './lib/ecdsa';
 import * as demoInv from './demos/inv';
 import * as demoAdd from './demos/add';
 import * as demoMul from './demos/mul';
 import * as demoPow from './demos/pow';
 import './demo.css';
-import * as elliptic from 'elliptic';
-import * as BN from 'bn.js';
 
 
 declare global {
@@ -20,10 +22,28 @@ declare global {
     GF: any;
     sss: any;
     elliptic: any;
-    ec: elliptic.ec;
     BN: any;
   }
 }
+
+// override mpc
+const mpclib = {
+  Secret: Secret,
+  Share: Share,
+  Party: Party,
+  LocalStorageSession: LocalStorageSession,
+  MPC: MPC,
+};
+
+window.mpclib = mpclib;
+
+window.GF = GF;
+
+window.sss = sss;
+
+window.elliptic = elliptic;
+
+window.BN = BN;
 
 window.MPCVars = {};
 
@@ -43,29 +63,6 @@ Secret.prototype.onSetShare = function() {
   renderVariables();
 }
 
-// override mpc
-const mpclib = {
-  Secret: Secret,
-  Share: Share,
-  Party: Party,
-  LocalStorageSession: LocalStorageSession,
-  MPC: MPC,
-};
-
-
-window.mpclib = mpclib;
-
-window.GF = GF;
-
-window.sss = sss;
-
-window.elliptic = elliptic;
-
-window.BN = BN;
-
-const ec = new elliptic.ec('secp256k1');
-window.ec = ec;
-
 // Dealer uses fixed ID in demo
 const DEALER = 999;
 
@@ -78,7 +75,9 @@ function initMPC() {
   const n = Number(urlParams.get('n') || 3);
   const k = Number(urlParams.get('k') || 2);
   const conf = { n: n, k: k, N: GF.N, dealer: DEALER }
-  return new mpclib.MPC(dealer, conf);
+  const ec = new elliptic.ec('secp256k1');
+
+  return new ecdsa.MPCECDsa(dealer, conf, ec);
 };
 
 function initUI(mpc: MPC) {
@@ -98,9 +97,9 @@ const settingsTamplate = `
 function renderSettings(mpc: MPC) {
   const id = (mpc.p.id == DEALER) ? 'Dealer' : mpc.p.id;
   const s = document.getElementById('settings');
-  const P = '0x' + mpc.conf.p.toString(16);
+  const N = '0x' + mpc.conf.N.toString(16);
   s.innerHTML = _.template(settingsTamplate)(
-    { party: id, n: mpc.conf.n, k: mpc.conf.k, p: P });
+    { party: id, n: mpc.conf.n, k: mpc.conf.k, N: N });
 }
 
 const variablesTemplate = `
