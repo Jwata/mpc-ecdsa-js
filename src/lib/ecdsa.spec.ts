@@ -22,7 +22,7 @@ function expectToBeReconstructablePubkey(priv: Secret, points: Array<[number, ec
   expect(pubExpected.eq(ecdsa.reconstruct([points[1], points[2]]))).toBeTruthy('Failed to reconstruct pubkey from share 2,3');
 }
 
-fdescribe('MPCEC', function() {
+describe('MPCEC', function() {
   let stubCleanup: Function;
   beforeAll(function() {
     stubCleanup = emulateStorageEvent();

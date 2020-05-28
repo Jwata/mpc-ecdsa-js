@@ -17,7 +17,7 @@ module.exports = (config) => {
     browsers: ['ChromeHeadless'],
     singleRun: true,
     client: {
-      captureConsole: true,
+      captureConsole: false,
     }
   });
 };
