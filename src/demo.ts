@@ -72,18 +72,28 @@ function initMPC() {
   const session = mpclib.LocalStorageSession.init('demo');
   const urlParams = new URLSearchParams(window.location.search);
   const pId = Number(urlParams.get('party'));
-  const dealer = new mpclib.Party(pId, session);
+  const p = new mpclib.Party(pId, session);
+  p.connect();
   const n = Number(urlParams.get('n') || 3);
   const k = Number(urlParams.get('k') || 2);
   const conf = { n: n, k: k, N: GF.N, dealer: DEALER }
   const ec = new elliptic.ec('secp256k1');
-
-  return new ecdsa.MPCECDsa(dealer, conf, ec);
+  return new ecdsa.MPCECDsa(p, conf, ec);
 };
 
 function initUI(mpc: MPC) {
+  addResetEvent(mpc);
   renderSettings(mpc);
   renderVariables();
+}
+
+function addResetEvent(mpc: MPC) {
+  const resetBtn = document.getElementById('reset-btn');
+  resetBtn.addEventListener('click', (_e: MouseEvent) => {
+    mpc.p.session.clear();
+    window.MPCVars = {};
+    init();
+  });
 }
 
 const settingsTamplate = `
@@ -137,7 +147,7 @@ function renderVariables() {
   });
 }
 
-window.addEventListener('DOMContentLoaded', function() {
+function init() {
   const mpc = initMPC();
   window.mpc = mpc;
   window.demos = {
@@ -162,6 +172,9 @@ window.addEventListener('DOMContentLoaded', function() {
       party: demoECDSA.party(mpc),
     },
   }
-
   initUI(mpc);
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+  init();
 });
