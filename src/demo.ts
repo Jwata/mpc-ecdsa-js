@@ -78,7 +78,6 @@ function initMPC() {
   const k = Number(urlParams.get('k') || 2);
   const conf = { n: n, k: k, N: GF.N, dealer: DEALER }
   const ec = new elliptic.ec('p256');
-  ec.genKeyPair()
   return new ecdsa.MPCECDsa(p, conf, ec);
 };
 
