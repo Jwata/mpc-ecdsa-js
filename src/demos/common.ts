@@ -14,3 +14,9 @@ export async function recieveResult(mpc: MPC, s: Secret) {
   }
   return s;
 }
+
+export function renderOutputs(html: string) {
+  const el = document.getElementById('outputs');
+  el.innerHTML = html;
+}
+
