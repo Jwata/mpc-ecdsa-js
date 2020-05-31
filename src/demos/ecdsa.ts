@@ -17,7 +17,7 @@ export function dealer(mpc: MPCECDsa) {
 
 export function party(mpc: MPCECDsa) {
   return async function() {
-    const m = 'hello mpc ecdsa';
+    const m = 'hello mpc ecdsa\n';
     const privkey = new Share('privateKey', mpc.p.id);
     const pubkey = await mpc.keyGen(privkey);
     const sig = await mpc.sign(m, privkey, pubkey);

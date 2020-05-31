@@ -24,9 +24,9 @@ describe('getRandomValues', function() {
 
 describe('sha256', function() {
   it('calculates sha256 hash from string message', async function() {
-    const m = 'hello mpc ecdsa';
+    const m = 'hello mpc ecdsa\n';
     const h = await sha256(m);
 
-    expect(h).toEqual('853b16f3891d1d6d3d2faedf63b2e345de11962ebca485e5f5edae5c6ea3525a');
+    expect(h).toEqual('4e1694b1466ee6dfa0267288e425648403faa2377d623a8c1824794a9e0935c3');
   });
 });

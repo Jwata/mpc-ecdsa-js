@@ -130,7 +130,7 @@ describe('MPCEC', function() {
     it('signs to message with private key shares', async function() {
       setupParties(this, 'test_ec_sign');
 
-      const m = 'hello mpc ecdsa';
+      const m = 'hello mpc ecdsa\n';
 
       const futures = [];
       for (let p of this.parties) {
