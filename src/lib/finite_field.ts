@@ -4,11 +4,16 @@
 import { secureRandom256 } from './crypto';
 
 /**
+ * secp256r1 elliptic curve order N.
+ *   See: http://www.secg.org/sec2-v2.pdf
+ */
+export const N = BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551');
+/**
  * secp256k1 elliptic curve parameters P and N.
- *   See http://www.secg.org/sec2-v2.pdf for more details.
+ *   See: http://www.secg.org/sec2-v2.pdf
  */
 // export const P = BigInt('0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f');
-export const N = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
+// export const N = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
 
 export function add(x: bigint, y: bigint): bigint {
   return normalize(x + y);

@@ -1,14 +1,13 @@
 import * as elliptic from 'elliptic';
 const Signature = require('elliptic/lib/elliptic/ec/signature');
 
-import { sha256 } from './crypto';
 import * as GF from './finite_field';
 import { Secret, Share, MPC } from './mpc';
 import * as ecdsa from './ecdsa';
 import { emulateStorageEvent, background, expectToBeReconstructable, setupParties } from './test_utils';
 
 // elliptic curve
-const ec = new elliptic.ec('secp256k1');
+const ec = new elliptic.ec('p256');
 
 function expectToBeReconstructablePubkey(priv: Secret, points: Array<[number, ecdsa.ECPoint]>) {
   const keyPair = ec.keyFromPrivate(priv.value.toString(16), 'hex');
@@ -20,6 +19,17 @@ function expectToBeReconstructablePubkey(priv: Secret, points: Array<[number, ec
   expect(pubExpected.eq(ecdsa.reconstruct([points[0], points[1]]))).toBeTruthy('Failed to reconstruct pubkey from share 1,2');
   expect(pubExpected.eq(ecdsa.reconstruct([points[0], points[2]]))).toBeTruthy('Failed to reconstruct pubkey from share 1,3');
   expect(pubExpected.eq(ecdsa.reconstruct([points[1], points[2]]))).toBeTruthy('Failed to reconstruct pubkey from share 2,3');
+}
+
+// Verify signature using Web crypto API.
+async function expectToVerify(pubkey: ecdsa.ECPoint, sig: elliptic.ec.Signature, message: string) {
+  const algo = { name: 'ECDSA', namedCurve: 'P-256', hash: 'SHA-256' };
+  const importedPubkey = await window.crypto.subtle.importKey(
+    'raw', new Uint8Array(pubkey.encode('array', false)), algo, true, ['verify']);
+  const sigArray = sig.r.toArray('be', 32).concat(sig.s.toArray('be', 32));
+  const verified = await window.crypto.subtle.verify(
+    algo, importedPubkey, new Uint8Array(sigArray), new TextEncoder().encode(message));
+  expect(verified).toBeTruthy();
 }
 
 describe('MPCEC', function() {
@@ -143,14 +153,7 @@ describe('MPCEC', function() {
               await p.receiveShare(priv.getShare(pId));
             }
             expectToBeReconstructable(priv);
-
-            const keyPair = mpc.curve.keyFromPublic(
-              pubkey.encodeCompressed('hex'), 'hex');
-            console.log(`PrivateKey: ${priv.toHex()}`);
-            console.log(`Publickey(compressed): ${keyPair.getPublic(true, 'hex')}`);
-            console.log(`Publickey: X=${keyPair.getPublic().getX().toJSON()}, Y=${keyPair.getPublic().getY().toJSON()}`)
-            console.log(`Message = SHA256('${m}'): ${await sha256(m)}`);
-            console.log(`Signature(DER): ${sig.toDER('hex')}`)
+            await expectToVerify(pubkey, sig, m);
           }
         });
         futures.push(future);
