@@ -168,7 +168,6 @@ function init() {
       party: demoPow.party(mpc),
     },
     ecdsa: {
-      dealer: demoECDSA.dealer(mpc),
       party: demoECDSA.party(mpc),
     },
   }

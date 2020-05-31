@@ -8,15 +8,6 @@ import { Share, Public } from '../lib/mpc';
 import { MPCECDsa } from '../lib/ecdsa';
 import { renderOutputs } from './common';
 
-export function dealer(mpc: MPCECDsa) {
-  return async function() {
-    var pubkey = new Public('pubkey');
-    await mpc.recievePublic(pubkey);
-
-    console.log('Recieved pubkey', pubkey.value);
-  }
-}
-
 const outputsTemplate = `
 <ul>
   <li>
