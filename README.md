@@ -35,6 +35,7 @@ This setting assumes *Semi-Honest* security model where all parties are expected
 * It uses [prime256v1 (secp256r1)](https://www.ietf.org/rfc/rfc5480.txt) curve.
 * It uses [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) to generate [random](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues) values and calculate [sha256](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest) hashes.
 * It's tested only on Chrome.
+* See [demo page document](./docs/how-to-use-demo.md)  for more details and other demos.
 
 ## Protocols
 
