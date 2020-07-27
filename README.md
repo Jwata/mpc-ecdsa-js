@@ -6,11 +6,11 @@ This is a demonstration of ECDSA distributed key generation and signing protocol
 
 ### Secret Sharing
 
-In this demo, [Shamir Secret Sharing(SSS)]([https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing](https://en.wikipedia.org/wiki/Shamir's_Secret_Sharing)) is used for parties to have *shares* without revealing secret information, such as secret key of EC, nonce `k` in signing protocol. A prime field is used for polinomial computations. This is a *k-out-of-n* protocol for any *n* and *k* satisfy *n <= 2k - 1*, where *n* is the total number of parties, and *k* is the number of honest parties.
+In this demo, [Shamir Secret Sharing(SSS)](https://en.wikipedia.org/wiki/Shamir's_Secret_Sharing) is used for parties to have *shares* without revealing secret information, such as secret key of EC, nonce `k` in signing protocol. A prime field is used for polinomial computations. This is a *k-out-of-n* protocol for any *n* and *k* satisfy *n <= 2k - 1*, where *n* is the total number of parties, and *k* is the number of honest parties.
 
 ### Security
 
-This setting assumes *Semi-Honest* security model where all parties are expected to follow the protocols, but some of corrupted parties cooperate to reveal secret information. Therefore, it *should not* be used for real applications. If you need a *Malicious* model, please check the papers.
+This setting assumes *Semi-Honest* security model where all parties are expected to follow the protocols, but some of corrupted parties may cooperate to reveal secret information. Therefore, it *should not* be used for real applications. If you need a *Malicious* model, please check the original paper.
 
 ## Demo
 
@@ -33,7 +33,7 @@ This setting assumes *Semi-Honest* security model where all parties are expected
 
 * In this demo, parties use browser's [LocalStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) to emulate p2p communications.
 * It uses [prime256v1 (secp256r1)](https://www.ietf.org/rfc/rfc5480.txt) curve.
-* It uses [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) to generate [random](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues) values, calculate [sha256](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest) hashes.
+* It uses [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) to generate [random](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues) values and calculate [sha256](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest) hashes.
 * It's tested only on Chrome.
 
 ## Protocols
