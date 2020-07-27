@@ -25,8 +25,6 @@ This page explains how to use [the demo page](https://jwata.github.io/mpc-ecdsa/
 * `n` ... The total number of the parties.
 * `k` ... The number of the parties required to execute the protocols. (The threshold)
 
-<img src="/Users/junji/Library/Application Support/typora-user-images/image-20200727092149492.png" alt="image-20200727092149492"/>
-
 ## Console
 
 You can execute the MPC protcols on [the browser's dev console](https://developers.google.com/web/tools/chrome-devtools/console). The MPC APIs are implemented in [src/lib/mpc.ts](https://github.com/Jwata/mpc-ecdsa-js/blob/master/src/lib/mpc.ts).
